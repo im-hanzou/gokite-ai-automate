@@ -1,137 +1,170 @@
-# SecureKiteAI Automation
+# KiteAI Automation Tool
 
-A secure, advanced automation script for daily Gokite.ai testnet agent interactions with enhanced anti-detection measures and human behavior simulation.
+An automated tool for interacting with Gokite.ai testnet services to earn daily points through AI interactions.
 
-## Features
+## Platform Requirements
 
-- 🔒 Advanced security measures and anti-detection system
-- 🤖 Realistic human behavior simulation
-- 📊 Detailed usage tracking and statistics
-- 🔄 Automatic rate limiting and error handling
-- 📝 Comprehensive logging system
-- 🎨 Colored console output for better readability
-- ⚡ Efficient request management with retry mechanisms
-- 🔐 Secure session handling with device fingerprinting
+1. **Gokite.ai Account** 
+   - Register here: https://testnet.gokite.ai?r=UjcyavBf
+   - Complete all initial onboarding tasks
+   - Ensure your account is in good standing
 
-## Requirements
+2. **EVM Wallet Address**
+   - Register using EVM wallet on Avalanche Chain
+   - Keep your private keys secure
+   - Have enough AVAX for gas fees
 
-### Platform Requirements
+3. **Complete Initial Tasks**
+   - Complete all required Gokite.ai onboarding tasks
+   - Verify your account status
+   - Ensure you have access to all features
 
-1. Gokite.ai Account - Register here: [https://testnet.gokite.ai](https://testnet.gokite.ai?r=TzmGkHcM)
-2. EVM Wallet Address - Register using EVM wallet on Avalanche Chain
-3. Complete all initial Gokite.ai tasks
-4. VPS or RDP (Optional)
-
-### Technical Requirements
-
-- Python 3.x
-- Required Python packages (installed via requirements.txt)
+4. **VPS or RDP (Optional)**
+   - Recommended for 24/7 operation
+   - Minimum specs: 1 CPU, 1GB RAM
+   - Stable internet connection required
 
 ## Installation
 
-### Step 1: Install Python
-
-#### Windows
-Download and install from [Python Official Website](https://www.python.org/ftp/python/3.13.0/python-3.13.0-amd64.exe)
-
-#### Unix Systems
+1. Clone the repository:
 ```bash
-apt install python3 python3-pip git -y
+git clone https://github.com/Madleyym/gokite-ai-automate
+cd kite-automation
 ```
 
-#### Termux
-```bash
-pkg install python python-pip git -y
-```
-
-### Step 2: Get the Script
-
-Either download [manually](https://github.com/im-hanzou/gokite-ai-automate/archive/refs/heads/main.zip) or clone using git:
-```bash
-git clone https://github.com/im-hanzou/gokite-ai-automate
-```
-
-### Step 3: Install Dependencies
-
-Navigate to the project directory:
-```bash
-cd gokite-ai-automate
-```
-
-Install required packages:
-- Windows/Termux:
+2. Install required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
-- Unix:
-```bash
-pip3 install -r requirements.txt
+
+3. Configure your wallet:
+   - Open `config.py`
+   - Replace `DEFAULT_WALLET` with your wallet address
+
+## Dependencies
+
+```text
+requests==2.31.0
+colorama==0.4.6
+urllib3==2.0.7
 ```
 
 ## Usage
 
-### Running the Bot
-
-#### Windows/Termux:
+1. Basic usage:
 ```bash
 python main.py
 ```
 
-#### Unix:
+2. Run in background (Linux):
 ```bash
-python3 main.py
+nohup python main.py &
 ```
 
-### Configuration
-
-When prompted, enter your EVM wallet address in the format:
-```
-0x123456789XXXXX123456789XXXXX1234567890
+3. Run with logging:
+```bash
+python main.py --log-level INFO
 ```
 
-## Features in Detail
+## Features
 
-### Security Measures
-- Advanced retry strategy with exponential backoff
-- Rotating user agents and browser profiles
-- Device fingerprinting
-- Session tracking
-- Request pattern analysis
+- Automated AI interactions
+- Smart retry mechanism
+- Progress tracking
+- Error handling
+- Session management
+- Daily limits compliance
+- Real-time statistics
 
-### Automation Features
-- Automatic daily points tracking
-- Interaction limits management
-- Transaction validation
-- Real-time statistics monitoring
-- Colored console output for status updates
+## Configuration
 
-### Error Handling
-- Comprehensive error logging
-- Automatic retry mechanisms
-- Rate limit management
-- Session timeout handling
+Default settings in `config.py`:
+```python
+MAX_DAILY_POINTS = 1000
+POINTS_PER_INTERACTION = 25
+MAX_DAILY_INTERACTIONS = 40
+```
 
-## Monitoring
+## Logging
 
-The script provides real-time statistics including:
-- 💼 Wallet address
-- 🔄 Total interactions
-- ⭐ Points earned
-- 🤖 Agents used
-- 📅 First seen date
-- ⏰ Last active timestamp
+Logs are stored in the `logs` directory:
+- Format: `kite_automation_YYYYMMDD_HHMMSS.log`
+- Contains detailed operation logs
+- Helps with troubleshooting
 
-## Important Notes
+## Safety Features
 
-- Using this bot is at your own risk
-- This tool is for educational purposes only
-- The developer is not responsible for any loss or damage
-- Consider using the referral code provided if you're new to Gokite.ai
+- Rate limiting compliance
+- Error recovery
+- Session management
+- IP rotation (if using proxy)
+- Anti-detection measures
 
-## Logs
+## Troubleshooting
 
-Logs are automatically stored in the `logs` directory with timestamps for debugging and monitoring purposes.
+Common issues and solutions:
 
-## License
+1. Connection errors:
+   - Check internet connection
+   - Verify API endpoints
+   - Check VPN if using one
 
-This project is provided "as is" without warranty of any kind.
+2. Authentication errors:
+   - Verify wallet address
+   - Check account status
+   - Ensure completed onboarding
+
+3. Rate limiting:
+   - Wait for cooldown
+   - Check daily limits
+   - Verify interaction timing
+
+## Best Practices
+
+1. Run during active hours
+2. Monitor logs regularly
+3. Keep software updated
+4. Use stable internet connection
+5. Backup configuration files
+
+## Limitations
+
+- Daily interaction limit: 20
+- Points per interaction: 20
+- Maximum daily points: 200
+- Required cooldown between interactions
+
+## Legal & Compliance
+
+- Follow Gokite.ai terms of service
+- Respect rate limits
+- Don't use multiple accounts
+- Comply with local regulations
+
+## Support
+
+For issues and support:
+1. Check existing issues
+2. Review logs
+3. Create detailed bug reports
+4. Join community channels
+
+## Updates
+
+Check for updates regularly:
+```bash
+git pull origin main
+pip install -r requirements.txt --upgrade
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create feature branch
+3. Commit changes
+4. Create pull request
+
+
+## Disclaimer
+
+This tool is for educational purposes only. Use at your own risk. Always comply with Gokite.ai terms of service and local regulations.
