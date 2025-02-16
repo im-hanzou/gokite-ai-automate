@@ -26,18 +26,14 @@ init(autoreset=True)
 
 
 def print_session_info():
-    """Print current session information with nice formatting"""
-    current_time = datetime.now(pytz.UTC).strftime("%Y-%m-%d %H:%M:%S")
+    """Print current session information"""
+    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     current_user = getpass.getuser()
 
     print(
-        f"\n{Fore.YELLOW}═════════════════ Session Info ═════════════════{Style.RESET_ALL}"
+        f"\n{Fore.YELLOW}Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {Style.RESET_ALL}{current_time}"
     )
-    print(f"{Fore.CYAN}📅 UTC Time:{Style.RESET_ALL} {current_time}")
-    print(f"{Fore.CYAN}👤 User:{Style.RESET_ALL} {current_user}")
-    print(
-        f"{Fore.YELLOW}═════════════════════════════════════════════════{Style.RESET_ALL}\n"
-    )
+    print(f"{Fore.YELLOW}Current User's Login: {Style.RESET_ALL}{current_user}\n")
 
 
 def main():
