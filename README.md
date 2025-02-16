@@ -17,7 +17,7 @@ A secure, advanced automation script for daily Gokite.ai testnet agent interacti
 
 ### Platform Requirements
 
-1. Gokite.ai Account - Register here: [https://testnet.gokite.ai](https://testnet.gokite.ai?r=cmuST6sG)
+1. Gokite.ai Account - Register here: [https://testnet.gokite.ai](https://testnet.gokite.ai?r=TzmGkHcM)
 2. EVM Wallet Address - Register using EVM wallet on Avalanche Chain
 3. Complete all initial Gokite.ai tasks
 4. VPS or RDP (Optional)
