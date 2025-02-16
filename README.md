@@ -80,9 +80,9 @@ python main.py --log-level INFO
 
 Default settings in `config.py`:
 ```python
-MAX_DAILY_POINTS = 1000
-POINTS_PER_INTERACTION = 25
-MAX_DAILY_INTERACTIONS = 40
+MAX_DAILY_POINTS = 200
+POINTS_PER_INTERACTION = 20
+MAX_DAILY_INTERACTIONS = 20
 ```
 
 ## Logging
