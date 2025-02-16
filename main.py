@@ -25,6 +25,26 @@ from config import (
 init(autoreset=True)
 
 
+def print_session_info():
+    """Print current session information"""
+    utc_now = datetime.now(pytz.UTC)
+
+    print(
+        f"\n{Fore.YELLOW}📅 Current Time (UTC): {Fore.GREEN}{utc_now.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}"
+    )
+    print(f"{Fore.YELLOW}👤 User: {Fore.GREEN}{getpass.getuser()}{Style.RESET_ALL}")
+    print(
+        f"{Fore.YELLOW}💻 System: {Fore.GREEN}{platform.system()} {platform.release()}{Style.RESET_ALL}\n"
+    )
+
+
+def main():
+    print(Fore.CYAN + BANNER + Style.RESET_ALL)
+    print_session_info()
+    automation = SecureKiteAIAutomation(DEFAULT_WALLET)
+    automation.run()
+
+
 class SecureKiteAIAutomation:
     def __init__(self, wallet_address: str):
         self.wallet_address = wallet_address
@@ -154,72 +174,150 @@ class SecureKiteAIAutomation:
             return []
 
     def send_ai_query(self, endpoint: str, message: str) -> Optional[str]:
-        """Send query to AI endpoint"""
-        print(f"\n{Fore.YELLOW}💭 Question: {message}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}Waiting for AI response...{Style.RESET_ALL}")
-
+        """Send query to AI endpoint with simplified colored output"""
+        # Print question in cyan
+        print(f"\n{Fore.CYAN}💭 Question: {message}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}Waiting for AI response...{Style.RESET_ALL}\n")
+        
         try:
             response = self.session.post(
                 endpoint,
-                headers={**self.generate_headers(), "Accept": "text/event-stream"},
+                headers={
+                    **self.generate_headers(),
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },
                 json={
                     "message": message,
-                    "stream": True,
+                    "stream": False,
                     "timestamp": int(time.time()),
                     "session_id": self.session_id,
                 },
-                timeout=30,
+                timeout=45
             )
-
+            
             if response.status_code != 200:
+                print(f"{Fore.RED}❌ AI returned status code: {response.status_code}{Style.RESET_ALL}")
                 return None
-
-            content = ""
-            for line in response.iter_lines():
-                if line:
-                    line = line.decode("utf-8")
-                    if line.startswith("data: "):
-                        try:
-                            data = json.loads(line[6:])
-                            text = data.get("choices", [{}])[0].get("text", "")
-                            if text:
-                                content += text
-                                print(text, end="", flush=True)
-                        except json.JSONDecodeError:
-                            continue
-
-            return content
+                
+            try:
+                data = response.json()
+                if not data:
+                    print(f"{Fore.RED}❌ Empty response from AI{Style.RESET_ALL}")
+                    return None
+                    
+                # Extract the complete response
+                ai_response = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+                if not ai_response:
+                    print(f"{Fore.RED}❌ No content in AI response{Style.RESET_ALL}")
+                    return None
+                
+                # Print AI response in green with 🤖 emoji
+                print(f"{Fore.GREEN}🤖 AI Response: {ai_response}{Style.RESET_ALL}")
+                return ai_response
+                
+            except json.JSONDecodeError:
+                print(f"{Fore.RED}❌ Invalid JSON response from AI{Style.RESET_ALL}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            print(f"{Fore.RED}❌ Request timed out{Style.RESET_ALL}")
+            return None
         except Exception as e:
+            print(f"{Fore.RED}❌ Error in AI query: {str(e)}{Style.RESET_ALL}")
             logging.error(f"Error in AI query: {str(e)}")
             return None
 
     def report_usage(self, endpoint: str, message: str, response: str) -> bool:
-        """Report interaction usage"""
+        """Report interaction usage with better error handling"""
         try:
+            usage_data = {
+                "wallet_address": self.wallet_address,
+                "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
+                "request": message,
+                "response": response,
+                "metadata": {
+                    "session_id": self.session_id,
+                    "device_fingerprint": self.device_fingerprint,
+                    "timestamp": int(time.time()),
+                    "client_version": "1.0.0"
+                }
+            }
+
+            headers = {
+                **self.generate_headers(),
+                "Content-Type": "application/json",
+                "X-Request-ID": str(uuid.uuid4())
+            }
+
             response = self.session.post(
                 "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
-                headers=self.generate_headers(),
-                json={
+                headers=headers,
+                json=usage_data,
+                timeout=(5, 15)
+            )
+
+            if response.status_code == 200:
+                print(f"{Fore.GREEN}✅ Usage reported successfully{Style.RESET_ALL}")
+                return True
+            elif response.status_code == 422:
+                print(f"{Fore.YELLOW}⚠️ Invalid request format - Adjusting format and retrying...{Style.RESET_ALL}")
+                # Try alternative format
+                alt_usage_data = {
                     "wallet_address": self.wallet_address,
                     "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
                     "request_text": message,
                     "response_text": response,
-                    "request_metadata": {
-                        "timestamp": int(time.time()),
-                        "session_id": self.session_id,
-                        "device_fingerprint": self.device_fingerprint,
-                    },
-                },
-                timeout=10,
-            )
-            return response.status_code == 200
-        except Exception as e:
-            logging.error(f"Error reporting usage: {str(e)}")
+                    "timestamp": int(time.time())
+                }
+                response = self.session.post(
+                    "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
+                    headers=headers,
+                    json=alt_usage_data,
+                    timeout=(5, 15)
+                )
+                if response.status_code == 200:
+                    print(f"{Fore.GREEN}✅ Usage reported successfully after format adjustment{Style.RESET_ALL}")
+                    return True
+            
+            print(f"{Fore.RED}❌ Usage report failed: Status {response.status_code}{Style.RESET_ALL}")
             return False
+
+        except Exception as e:
+            print(f"{Fore.RED}❌ Error reporting usage: {str(e)}{Style.RESET_ALL}")
+            return False
+
+    def check_points_status(self) -> Dict:
+        """Check current points and interactions status"""
+        try:
+            url = f"https://quests-usage-dev.prod.zettablock.com/api/user/{self.wallet_address}/stats"
+            response = self.session.get(
+                url, headers=self.generate_headers(), timeout=(5, 10)
+            )
+
+            if response.status_code == 200:
+                stats = response.json()
+                print(f"\n{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Current Status:{Style.RESET_ALL}")
+                print(
+                    f"Points: {Fore.GREEN}{stats.get('total_points', 0)}{Style.RESET_ALL}"
+                )
+                print(
+                    f"Interactions: {Fore.GREEN}{stats.get('total_interactions', 0)}{Style.RESET_ALL}"
+                )
+                print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}\n")
+                return stats
+            return {}
+        except Exception as e:
+            logging.error(f"Error checking points status: {str(e)}")
+            return {}
 
     def perform_interaction(self) -> bool:
         """Perform one complete interaction cycle"""
         try:
+            # Check points status first
+            stats = self.check_points_status()
+
             # Get transactions
             transactions = self.get_transactions()
             if not transactions:
@@ -229,28 +327,22 @@ class SecureKiteAIAutomation:
             # Select AI endpoint and question
             endpoint = random.choice(list(AI_ENDPOINTS.keys()))
             if "Transaction Analyzer" in AI_ENDPOINTS[endpoint]["name"]:
-                questions = [
-                    f"What do you think of this transaction? {tx}"
-                    for tx in transactions
-                ]
+                tx = random.choice(transactions)
+                question = f"Analyze this transaction in detail: {tx}"
             else:
-                questions = AI_ENDPOINTS[endpoint]["questions"]
+                question = random.choice(AI_ENDPOINTS[endpoint]["questions"])
 
-            question = random.choice(questions)
-
-            # Send query to AI
-            print(
-                f"\n{Fore.CYAN}Selected AI: {AI_ENDPOINTS[endpoint]['name']}{Style.RESET_ALL}"
-            )
+            print(f"\n{Fore.CYAN}Selected AI: {AI_ENDPOINTS[endpoint]['name']}{Style.RESET_ALL}")
             response = self.send_ai_query(endpoint, question)
+
             if not response:
                 return False
 
-            # Report usage
+            # Report usage with improved function
             if self.report_usage(endpoint, question, response):
                 self.daily_points += self.POINTS_PER_INTERACTION
-                print(f"\n{Fore.GREEN}✅ Interaction successful{Style.RESET_ALL}")
                 return True
+
             return False
 
         except Exception as e:
