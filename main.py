@@ -173,7 +173,7 @@ class SecureKiteAIAutomation:
 
     def send_ai_query(self, endpoint: str, message: str) -> Optional[str]:
         """Send query to AI endpoint with simplified colored output"""
-        # Print question only once
+        # Print question in cyan
         print(f"\n{Fore.CYAN}💭 Question: {message}{Style.RESET_ALL}")
         print(f"{Fore.YELLOW}Waiting for AI response...{Style.RESET_ALL}\n")
         
@@ -191,7 +191,7 @@ class SecureKiteAIAutomation:
                     "timestamp": int(time.time()),
                     "session_id": self.session_id,
                 },
-                timeout=30  # Reduced timeout
+                timeout=45
             )
             
             if response.status_code != 200:
@@ -210,7 +210,7 @@ class SecureKiteAIAutomation:
                     print(f"{Fore.RED}❌ No content in AI response{Style.RESET_ALL}")
                     return None
                 
-                # Print AI response in green
+                # Print AI response in green with 🤖 emoji
                 print(f"{Fore.GREEN}🤖 AI Response: {ai_response}{Style.RESET_ALL}")
                 return ai_response
                 
@@ -223,59 +223,8 @@ class SecureKiteAIAutomation:
             return None
         except Exception as e:
             print(f"{Fore.RED}❌ Error in AI query: {str(e)}{Style.RESET_ALL}")
+            logging.error(f"Error in AI query: {str(e)}")
             return None
-
-def perform_interaction(self) -> bool:
-    """Perform one complete interaction cycle"""
-    try:
-        # Select AI endpoint and question
-        endpoint = random.choice(list(AI_ENDPOINTS.keys()))
-        ai_name = AI_ENDPOINTS[endpoint]["name"]
-        question = random.choice(AI_ENDPOINTS[endpoint]["questions"])
-
-        # Print selected AI info
-        print(f"\n{Fore.CYAN}Selected AI:{Style.RESET_ALL} {ai_name}")
-        
-        # Get AI response
-        response = self.send_ai_query(endpoint, question)
-        if not response:
-            return False
-
-        # Report usage with simplified data
-        try:
-            usage_data = {
-                "wallet_address": self.wallet_address,
-                "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
-                "request_text": question,
-                "response_text": response,
-                "timestamp": int(time.time())
-            }
-
-            report_response = self.session.post(
-                "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
-                headers={
-                    **self.generate_headers(),
-                    "Content-Type": "application/json"
-                },
-                json=usage_data,
-                timeout=10
-            )
-
-            if report_response.status_code == 200:
-                self.daily_points += self.POINTS_PER_INTERACTION
-                print(f"{Fore.GREEN}✅ Points awarded successfully{Style.RESET_ALL}")
-                return True
-            else:
-                print(f"{Fore.RED}❌ Failed to report usage: Status {report_response.status_code}{Style.RESET_ALL}")
-                return False
-
-        except Exception as e:
-            print(f"{Fore.RED}❌ Error reporting usage: {str(e)}{Style.RESET_ALL}")
-            return False
-
-    except Exception as e:
-        print(f"{Fore.RED}❌ Error in interaction: {str(e)}{Style.RESET_ALL}")
-        return False
 
     def report_usage(self, endpoint: str, message: str, response: str) -> bool:
         """Report interaction usage with better error handling"""
@@ -362,27 +311,34 @@ def perform_interaction(self) -> bool:
             return {}
 
     def perform_interaction(self) -> bool:
-        """Perform one complete interaction cycle with better questions"""
+        """Perform one complete interaction cycle"""
         try:
+            # Check points status first
+            stats = self.check_points_status()
+
+            # Get transactions
+            transactions = self.get_transactions()
+            if not transactions:
+                print(f"{Fore.RED}❌ No transactions available{Style.RESET_ALL}")
+                return False
+
             # Select AI endpoint and question
             endpoint = random.choice(list(AI_ENDPOINTS.keys()))
-            question = random.choice(AI_ENDPOINTS[endpoint]["questions"])
+            if "Transaction Analyzer" in AI_ENDPOINTS[endpoint]["name"]:
+                tx = random.choice(transactions)
+                question = f"Analyze this transaction in detail: {tx}"
+            else:
+                question = random.choice(AI_ENDPOINTS[endpoint]["questions"])
 
-            # Print selected AI info
-            print(f"\n{Fore.CYAN}Selected AI:{Style.RESET_ALL} {AI_ENDPOINTS[endpoint]['name']}")
-            
-            # Send query with colored output
-            print(f"\n{Fore.CYAN}💭 Question:{Style.RESET_ALL} {question}")
-            print(f"{Fore.YELLOW}Waiting for response...{Style.RESET_ALL}\n")
-            
+            print(f"\n{Fore.CYAN}Selected AI: {AI_ENDPOINTS[endpoint]['name']}{Style.RESET_ALL}")
             response = self.send_ai_query(endpoint, question)
+
             if not response:
                 return False
 
-            # Report usage
+            # Report usage with improved function
             if self.report_usage(endpoint, question, response):
                 self.daily_points += self.POINTS_PER_INTERACTION
-                print(f"\n{Fore.GREEN}✅ Interaction completed successfully{Style.RESET_ALL}")
                 return True
 
             return False
@@ -396,6 +352,7 @@ def perform_interaction(self) -> bool:
         print(f"\n{Fore.GREEN}🚀 Starting KiteAI automation...{Style.RESET_ALL}")
 
         if not self.check_service_health():
+            print(f"{Fore.RED}❌ Services unavailable. Stopping...{Style.RESET_ALL}")
             return
 
         consecutive_failures = 0
@@ -424,25 +381,27 @@ def perform_interaction(self) -> bool:
                 else:
                     consecutive_failures += 1
                     if consecutive_failures >= 3:
-                        print(
-                            f"{Fore.RED}Too many failures. Checking services...{Style.RESET_ALL}"
-                        )
+                        print(f"{Fore.RED}Too many failures. Checking services...{Style.RESET_ALL}")
                         if not self.check_service_health():
+                            print(f"{Fore.RED}❌ Services unavailable. Stopping...{Style.RESET_ALL}")
                             break
                         consecutive_failures = 0
 
-                # Wait between interactions
+                # Random delay between interactions
                 delay = random.uniform(5, 15)
-                print(f"{Fore.CYAN}Waiting {delay:.1f} seconds...{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Waiting {delay:.1f} seconds...{Style.RESET_ALL}")
                 time.sleep(delay)
 
             except KeyboardInterrupt:
-                print(f"\n{Fore.YELLOW}Stopped by user{Style.RESET_ALL}")
+                print(f"\n{Fore.YELLOW}👋 Stopped by user{Style.RESET_ALL}")
                 break
             except Exception as e:
                 logging.error(f"Error in main loop: {str(e)}")
                 consecutive_failures += 1
-                time.sleep(min(2**consecutive_failures, 60))
+                # Exponential backoff on errors
+                delay = min(2 ** consecutive_failures, 60)
+                print(f"{Fore.RED}❌ Error occurred. Waiting {delay} seconds...{Style.RESET_ALL}")
+                time.sleep(delay)
 
 
 def main():
