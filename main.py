@@ -21,7 +21,7 @@ MAX_DAILY_POINTS = 200
 POINTS_PER_INTERACTION = 200
 MAX_DAILY_INTERACTIONS = 20
 DEFAULT_WALLET = (
-    "0x6xxxxxxxxc17"  # Replace with your wallet address
+    "0x6xxxxxxxxxxxxxxxxxxxxc17"  # Replace with your wallet address
 )
 
 AI_ENDPOINTS = {
