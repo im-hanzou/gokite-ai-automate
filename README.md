@@ -33,18 +33,11 @@ pip install -r requirements.txt
 
 1. Clone or download the repository:
 ```bash
-git clone https://github.com/yourusername/kite-ai-automation.git
+git clone https://github.com/Madleyym/gokite-ai-automate
 cd kite-ai-automation
 ```
 
-2. Create a requirements.txt file with the following content:
-```
-requests>=2.26.0
-colorama>=0.4.4
-urllib3>=1.26.7
-```
-
-3. Install the required packages:
+2. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
