@@ -1,341 +1,385 @@
-import requests
+from __future__ import annotations
+
 import json
+import logging
+import os
+import platform
 import random
 import time
-import logging
-import string
-import platform
 import uuid
-import os
-from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-from colorama import init, Fore, Style
+from typing import Dict, Optional
+
+import requests
+from colorama import Fore, Style, init
 from requests.adapters import HTTPAdapter
+from requests.exceptions import ConnectionError, ReadTimeout, Timeout
 from urllib3.util import Retry
 
 # Initialize colorama
 init(autoreset=True)
 
 # Configuration
-MAX_DAILY_POINTS = 200
+MAX_DAILY_POINTS = 4000
 POINTS_PER_INTERACTION = 200
 MAX_DAILY_INTERACTIONS = 20
-DEFAULT_WALLET = (
-    "0x6xxxxxxxxxxxxxxxxxxxxc17"  # Replace with your wallet address
-)
+DEFAULT_WALLET = "0x664xxxxxxxxxxxxxxx2a7c17"
 
+# Global Headers
+GLOBAL_HEADERS = {
+    "Accept-Language": "en-GB,en;q=0.9,en-US;q=0.8,id;q=0.7",
+    "Connection": "keep-alive",
+    "Content-Type": "application/json",
+    "Origin": "https://agents.testnet.gokite.ai",
+    "Referer": "https://agents.testnet.gokite.ai/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "cross-site",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 Edg/133.0.0.0",
+    "sec-ch-ua": '"Not(A:Brand";v="99", "Microsoft Edge";v="133", "Chromium";v="133"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+}
+
+BASE_URLS = {
+    "USAGE_API": "https://quests-usage-dev.prod.zettablock.com",
+    "STATS_API": "https://quests-usage-dev.prod.zettablock.com/api/user",
+}
+
+TIMEOUT_SETTINGS = {"CONNECT": 10, "READ": 30, "RETRY_DELAY": 3}
+
+# Update endpoint Crypto Price Assistant dengan yang baru
 AI_ENDPOINTS = {
-    "https://deployment-uu9y1z4z85rapgwkss1muuiz.stag-vxzy.zettablock.com/main": {
-        "name": "Kite Blockchain Analyzer",
-        "agent_id": "agent_blockchain",
+    "https://deployment-hp4y88pxnqxwlmpxllicjzzn.stag-vxzy.zettablock.com/main": {
+        "agent_id": "deployment_Hp4Y88pxNQXwLMPxlLICJZzN",
+        "name": "Kite AI Assistant",
         "questions": [
-            "What are the recent trends in blockchain transactions?",
-            "How does the current transaction volume compare to historical averages?",
-            "What patterns do you see in recent smart contract interactions?",
+            "What is Kite AI and how does it work?",
+            "Can you explain the main features of Kite AI?",
+            "How can developers benefit from using Kite AI?",
+            "What makes Kite AI different from other platforms?",
+            "Tell me about Kite AI's blockchain integration",
+            "How does Kite AI help with smart contract analysis?",
+            "What are the key advantages of Kite AI?",
+            "Explain Kite AI's approach to blockchain data",
+            "How does Kite AI ensure security?",
+            "What are the latest updates in Kite AI?",
         ],
     },
-    "https://deployment-sofftlsf9z4fya3qchykaanq.stag-vxzy.zettablock.com/main": {
-        "name": "Transaction Analyzer",
-        "agent_id": "agent_transaction",
-        "questions": [],  # Will be populated with recent transaction questions
+    "https://deployment-nc3y3k7zy6gekszmcsordhu7.stag-vxzy.zettablock.com/main": {
+        "agent_id": "deployment_nC3y3k7zy6gekSZMCSordHu7",
+        "name": "Crypto Price Assistant",
+        "questions": [
+            "What's the current price of Bitcoin?",
+            "Show me Ethereum's current market status",
+            "How is the crypto market performing today?",
+            "Tell me about BNB's current price",
+            "What's happening with Solana right now?",
+            "Current market analysis for MATIC",
+            "Give me an update on DOT's price",
+            "What's the latest on AVAX?",
+            "Current crypto market overview",
+            "Latest price trends in major cryptocurrencies",
+        ],
     },
 }
 
-
-class SecureKiteAIAutomation:
-    def __init__(self, wallet_address: str):
+class KiteAIAutomation:
+    def __init__(self, wallet_address: str) -> None:
         self.wallet_address = wallet_address
         self.daily_points = 0
         self.start_time = datetime.now()
+        self.next_reset_time = self.start_time + timedelta(hours=24)
         self.session_id = str(uuid.uuid4())
-        self.error_count = 0
-        self.MAX_CONSECUTIVE_ERRORS = 5
-        self.CONNECT_TIMEOUT = 30
-        self.READ_TIMEOUT = 120  # Ditingkatkan dari 90
-        self.MAX_RETRIES = 8    # Ditingkatkan dari 7
-
-        # Setup components
-        self._setup_logging()
-        self._setup_retry_strategy()
-        self._setup_session()
         self.device_fingerprint = self._generate_device_fingerprint()
-        self.browser_profiles = self._load_browser_profiles()
-
-    def _setup_logging(self):
-        log_dir = "logs"
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(
-            log_dir, f'kite_automation_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+        self.MAX_DAILY_POINTS = 4000
+        self.POINTS_PER_INTERACTION = 200
+        self.MAX_DAILY_INTERACTIONS = (
+            self.MAX_DAILY_POINTS // self.POINTS_PER_INTERACTION
         )
-
-        logging.basicConfig(
-            filename=log_file,
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        console_handler.setFormatter(formatter)
-        logging.getLogger("").addHandler(console_handler)
-
-    def _setup_retry_strategy(self):
-        """Enhanced retry strategy with longer timeouts"""
-        self.retry_strategy = Retry(
-            total=self.MAX_RETRIES,
-            backoff_factor=2.5,    # Ditingkatkan dari 2
-            status_forcelist=[429, 500, 502, 503, 504, 520, 521, 522, 524],
-            allowed_methods=["GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE"],
-            respect_retry_after_header=True
-        )
-
-    def _setup_session(self):
-        """Enhanced session setup with improved timeout handling"""
-        self.session = requests.Session()
-        adapter = HTTPAdapter(
-            max_retries=self.retry_strategy,
-            pool_connections=15,    # Ditingkatkan dari 10
-            pool_maxsize=25,        # Ditingkatkan dari 20
-            pool_block=False
-        )
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-        self.session.timeout = (self.CONNECT_TIMEOUT, self.READ_TIMEOUT)
+        self.used_questions: set[str] = set()
 
     def _generate_device_fingerprint(self) -> str:
-        components = [
-            platform.system(),
-            platform.machine(),
-            platform.processor(),
-            str(uuid.getnode()),
-            platform.python_version(),
-            "".join(random.choices(string.ascii_letters + string.digits, k=16)),
-        ]
+        components = [platform.system(), platform.machine(), str(uuid.getnode())]
         return str(uuid.uuid5(uuid.NAMESPACE_DNS, "-".join(components)))
 
-    def _load_browser_profiles(self) -> List[Dict]:
-        return [
-            {
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "accept_language": "en-US,en;q=0.9",
-            },
-            {
-                "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:89.0) Gecko/20100101 Firefox/89.0",
-                "accept_language": "en-GB,en;q=0.9",
-            },
-        ]
+    def reset_daily_points(self) -> bool:
+        current_time = datetime.now()
+        if current_time >= self.next_reset_time:
+            print(
+                f"{self.print_timestamp()} {Fore.GREEN}Resetting points for new 24-hour period{Style.RESET_ALL}"
+            )
+            self.daily_points = 0
+            self.next_reset_time = current_time + timedelta(hours=24)
+            return True
+        return False
 
-    def generate_headers(self) -> Dict:
-        profile = random.choice(self.browser_profiles)
-        return {
-            "User-Agent": profile["user_agent"],
-            "Accept-Language": profile["accept_language"],
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "X-Device-Fingerprint": self.device_fingerprint,
-            "X-Session-ID": self.session_id,
+    def should_wait_for_next_reset(self) -> bool:
+        if self.daily_points >= self.MAX_DAILY_POINTS:
+            wait_seconds = (self.next_reset_time - datetime.now()).total_seconds()
+            if wait_seconds > 0:
+                print(
+                    f"{self.print_timestamp()} {Fore.YELLOW}Daily point limit reached ({self.MAX_DAILY_POINTS}){Style.RESET_ALL}"
+                )
+                print(
+                    f"{self.print_timestamp()} {Fore.YELLOW}Waiting until next reset at {self.next_reset_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}"
+                )
+                time.sleep(wait_seconds)
+                self.reset_daily_points()
+            return True
+        return False
+
+    def print_timestamp(self) -> str:
+        return f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]{Style.RESET_ALL}"
+
+    def get_unused_question(self, endpoint: str) -> str:
+        available_questions = [
+            q
+            for q in AI_ENDPOINTS[endpoint]["questions"]
+            if q not in self.used_questions
+        ]
+        if not available_questions:
+            self.used_questions.clear()
+            available_questions = AI_ENDPOINTS[endpoint]["questions"]
+
+        question = random.choice(available_questions)
+        self.used_questions.add(question)
+        return question
+
+    def send_ai_query(self, endpoint: str, message: str) -> str:
+        headers = GLOBAL_HEADERS.copy()
+        headers.update(
+            {
+                "Accept": "text/event-stream",
+                "X-Device-Fingerprint": self.device_fingerprint,
+                "X-Session-ID": self.session_id,
+            }
+        )
+
+        data = {
+            "message": message,
+            "stream": True,
+            "timestamp": int(time.time()),
+            "client_info": {
+                "session_id": self.session_id,
+                "device_fingerprint": self.device_fingerprint,
+            },
         }
 
-    def check_connection(self) -> bool:
         try:
-            response = self.session.get(
-                "https://testnet.kitescan.ai/api/v2/transactions",
-                headers=self.generate_headers(),
-                timeout=10,
-            )
-            return response.status_code == 200
+            response = requests.post(endpoint, headers=headers, json=data, stream=True)
+            accumulated_response = ""
+
+            print(f"{Fore.CYAN}AI Response: {Style.RESET_ALL}", end="", flush=True)
+            for line in response.iter_lines():
+                if line:
+                    line_str = line.decode("utf-8")
+                    if line_str.startswith("data: "):
+                        try:
+                            json_str = line_str[6:]
+                            if json_str == "[DONE]":
+                                break
+
+                            json_data = json.loads(json_str)
+                            content = (
+                                json_data.get("choices", [{}])[0]
+                                .get("delta", {})
+                                .get("content", "")
+                            )
+                            if content:
+                                accumulated_response += content
+                                print(
+                                    Fore.MAGENTA + content + Style.RESET_ALL,
+                                    end="",
+                                    flush=True,
+                                )
+                        except json.JSONDecodeError:
+                            continue
+
+            print()
+            return accumulated_response.strip()
         except Exception as e:
-            print(f"{Fore.RED}Connection check failed: {str(e)}{Style.RESET_ALL}")
-            return False
-
-    def get_recent_transactions(self) -> List[str]:
-        try:
-            response = requests.get(
-                "https://testnet.kitescan.ai/api/v2/advanced-filters",
-                params={"transaction_types": "coin_transfer", "age": "5m"},
-                headers=self.generate_headers(),
+            print(
+                f"{self.print_timestamp()} {Fore.RED}Error in AI query: {str(e)}{Style.RESET_ALL}"
             )
-            data = response.json()
-            return [item["hash"] for item in data.get("items", [])]
-        except Exception as e:
-            print(f"{Fore.RED}Error fetching transactions: {e}{Style.RESET_ALL}")
-            return []
-
-    def send_ai_query(self, endpoint: str, message: str) -> Optional[str]:
-        """Improved AI query function with better error handling"""
-        max_attempts = 3
-        base_wait_time = 5
-
-        for attempt in range(max_attempts):
-            try:
-                print(f"\n{Fore.CYAN}Sending query to {AI_ENDPOINTS[endpoint]['name']} (Attempt {attempt + 1}/{max_attempts})...{Style.RESET_ALL}")
-
-                response = self.session.post(
-                    endpoint,
-                    headers=self.generate_headers(),
-                    json={
-                        "message": message,
-                        "timestamp": int(time.time()),
-                        "client_info": {
-                            "session_id": self.session_id,
-                            "device_fingerprint": self.device_fingerprint
-                        }
-                    },
-                    timeout=(self.CONNECT_TIMEOUT, self.READ_TIMEOUT)
-                )
-
-                if response.status_code == 200:
-                    return response.json().get("response", "")
-
-                wait_time = base_wait_time * (attempt + 1)
-                print(f"{Fore.YELLOW}Request failed with status {response.status_code}. Waiting {wait_time} seconds before retry...{Style.RESET_ALL}")
-                time.sleep(wait_time)
-
-            except (ReadTimeout, Timeout) as e:
-                wait_time = base_wait_time * (attempt + 1)
-                print(f"{Fore.RED}Timeout error: {str(e)}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}Waiting {wait_time} seconds before retry...{Style.RESET_ALL}")
-                time.sleep(wait_time)
-
-            except ConnectionError as e:
-                wait_time = base_wait_time * (attempt + 1)
-                print(f"{Fore.RED}Connection error: {str(e)}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}Waiting {wait_time} seconds before retry...{Style.RESET_ALL}")
-                time.sleep(wait_time)
-
-            except Exception as e:
-                wait_time = base_wait_time * (attempt + 1)
-                print(f"{Fore.RED}Unexpected error: {str(e)}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}Waiting {wait_time} seconds before retry...{Style.RESET_ALL}")
-                time.sleep(wait_time)
-
-        print(f"{Fore.RED}Failed to send query after {max_attempts} attempts{Style.RESET_ALL}")
-        return None
+            return ""
 
     def report_usage(self, endpoint: str, message: str, response: str) -> bool:
-        try:
-            data = {
-                "wallet_address": self.wallet_address,
-                "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
-                "request_text": message,
-                "response_text": response,
-                "request_metadata": {
-                    "timestamp": int(time.time()),
-                    "session_id": self.session_id,
-                },
+        print(f"{self.print_timestamp()} {Fore.BLUE}Reporting usage...{Style.RESET_ALL}")
+        
+        headers = GLOBAL_HEADERS.copy()
+        headers.update({
+            'accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-Device-Fingerprint': self.device_fingerprint,
+            'X-Session-ID': self.session_id,
+        })
+        
+        data = {
+            "wallet_address": self.wallet_address,
+            "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
+            "request_text": message,
+            "response_text": response,
+            "request_metadata": {
+                "timestamp": int(time.time()),
+                "session_id": self.session_id,
+                "device_fingerprint": self.device_fingerprint
             }
-
-            response = self.session.post(
-                "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
-                headers=self.generate_headers(),
-                json=data,
-            )
-            return response.status_code == 200
-        except Exception as e:
-            print(f"{Fore.RED}Error reporting usage: {str(e)}{Style.RESET_ALL}")
-            return False
-
-    def perform_interaction(self) -> bool:
-        """Enhanced interaction function with connection checks"""
-        try:
-            # Check connection before proceeding
-            if not self.check_connection():
-                print(
-                    f"{Fore.YELLOW}Connection check failed. Waiting before retry...{Style.RESET_ALL}"
-                )
-                time.sleep(10)
-                return False
-
-            # Rest of the function remains the same...
-            transactions = self.get_recent_transactions()
-            if not transactions:
-                print(
-                    f"{Fore.YELLOW}No recent transactions found. Waiting...{Style.RESET_ALL}"
-                )
-                time.sleep(5)
-                return False
-
-            AI_ENDPOINTS[
-                "https://deployment-sofftlsf9z4fya3qchykaanq.stag-vxzy.zettablock.com/main"
-            ]["questions"] = [
-                f"What do you think of this transaction? {tx}" for tx in transactions
-            ]
-
-            endpoint = random.choice(list(AI_ENDPOINTS.keys()))
-            question = random.choice(AI_ENDPOINTS[endpoint]["questions"])
-
-            response = self.send_ai_query(endpoint, question)
-            if response and self.report_usage(endpoint, question, response):
-                self.daily_points += POINTS_PER_INTERACTION
-                print(
-                    f"{Fore.GREEN}Interaction successful (+{POINTS_PER_INTERACTION} points){Style.RESET_ALL}"
-                )
-                return True
-            return False
-
-        except Exception as e:
-            print(f"{Fore.RED}Error in interaction: {str(e)}{Style.RESET_ALL}")
-            return False
-
-    def run(self):
-        print(f"{Fore.GREEN}Starting KiteAI automation...{Style.RESET_ALL}")
-        consecutive_failures = 0
-
-        while True:
+        }
+        
+        max_retries = 5
+        base_delay = 3
+        
+        for attempt in range(max_retries):
             try:
-                stats = self.check_stats()
-                current_interactions = stats.get("total_interactions", 0)
-
-                if current_interactions >= MAX_DAILY_INTERACTIONS:
-                    print(f"{Fore.GREEN}Daily target reached!{Style.RESET_ALL}")
-                    break
-
-                if self.perform_interaction():
-                    consecutive_failures = 0
-                    time.sleep(random.uniform(10, 20))
+                resp = requests.post(
+                    f"{BASE_URLS['USAGE_API']}/api/report_usage",
+                    headers=headers,
+                    json=data,
+                    timeout=(TIMEOUT_SETTINGS['CONNECT'], TIMEOUT_SETTINGS['READ'])
+                )
+                
+                if resp.status_code == 200:
+                    print(f"{self.print_timestamp()} {Fore.GREEN}Usage report successful{Style.RESET_ALL}")
+                    return True
+                
+                if resp.status_code == 429:  # Rate limit
+                    wait_time = int(resp.headers.get('Retry-After', base_delay * (attempt + 1)))
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}Rate limited. Waiting {wait_time} seconds...{Style.RESET_ALL}")
+                    time.sleep(wait_time)
+                    continue
+                    
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)  # exponential backoff
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}Attempt {attempt + 1} failed with status {resp.status_code}. Waiting {delay} seconds...{Style.RESET_ALL}")
+                    time.sleep(delay)
                 else:
-                    consecutive_failures += 1
-                    if consecutive_failures >= self.MAX_CONSECUTIVE_ERRORS:
-                        print(
-                            f"{Fore.RED}Too many consecutive failures. Stopping...{Style.RESET_ALL}"
-                        )
-                        break
-                    time.sleep(min(2**consecutive_failures, 60))
-
-            except KeyboardInterrupt:
-                print(f"{Fore.YELLOW}Stopped by user{Style.RESET_ALL}")
-                break
-            except Exception as e:
-                print(f"{Fore.RED}Error: {str(e)}{Style.RESET_ALL}")
-                consecutive_failures += 1
-                if consecutive_failures >= self.MAX_CONSECUTIVE_ERRORS:
-                    break
-                time.sleep(min(2**consecutive_failures, 60))
+                    print(f"{self.print_timestamp()} {Fore.RED}Final attempt failed with status {resp.status_code}{Style.RESET_ALL}")
+                    
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}Attempt {attempt + 1} failed: {str(e)}. Waiting {delay} seconds...{Style.RESET_ALL}")
+                    time.sleep(delay)
+                else:
+                    print(f"{self.print_timestamp()} {Fore.RED}Final attempt failed: {str(e)}{Style.RESET_ALL}")
+        
+        return False
 
     def check_stats(self) -> Dict:
+        url = f'https://quests-usage-dev.prod.zettablock.com/api/user/{self.wallet_address}/stats'
+        
+        headers = GLOBAL_HEADERS.copy()
+        headers.update({
+            'accept': 'application/json',  # Ubah accept header
+            'X-Device-Fingerprint': self.device_fingerprint,
+            'X-Session-ID': self.session_id,
+        })
+        
         try:
-            response = self.session.get(
-                f"https://quests-usage-dev.prod.zettablock.com/api/user/{self.wallet_address}/stats",
-                headers=self.generate_headers(),
-            )
+            response = requests.get(url, headers=headers, timeout=15)  # Tambah timeout
             if response.status_code == 200:
                 return response.json()
+            print(f"{self.print_timestamp()} {Fore.RED}Stats check failed with status code: {response.status_code}{Style.RESET_ALL}")
+            return {}
+        except json.JSONDecodeError:
+            print(f"{self.print_timestamp()} {Fore.RED}Invalid JSON response from stats endpoint{Style.RESET_ALL}")
+            return {}
         except Exception as e:
-            print(f"{Fore.RED}Error checking stats: {str(e)}{Style.RESET_ALL}")
-        return {"total_points": 0, "total_interactions": 0}
+            print(f"{self.print_timestamp()} {Fore.RED}Error checking stats: {str(e)}{Style.RESET_ALL}")
+            return {}
+
+    def print_stats(self, stats: Dict) -> None:
+        print(f"\n{Fore.CYAN}=== Current Statistics ==={Style.RESET_ALL}")
+        print(
+            f"Total Interactions: {Fore.GREEN}{stats.get('total_interactions', 0)}{Style.RESET_ALL}"
+        )
+        print(f"Total Points: {Fore.GREEN}{self.daily_points}{Style.RESET_ALL}")
+        print(
+            f"Total Agents Used: {Fore.GREEN}{stats.get('total_agents_used', 0)}{Style.RESET_ALL}"
+        )
+        print(
+            f"Last Active: {Fore.YELLOW}{stats.get('last_active', 'N/A')}{Style.RESET_ALL}"
+        )
+
+    def run(self) -> None:
+        print(f"{self.print_timestamp()} {Fore.GREEN}Starting KiteAI automation...{Style.RESET_ALL}")
+        print(f"{self.print_timestamp()} {Fore.CYAN}Wallet Address: {self.wallet_address}{Style.RESET_ALL}")
+        
+        interaction_count = 0
+        consecutive_failures = 0
+        MAX_CONSECUTIVE_FAILURES = 5  # Increased from 3
+        retry_delay = TIMEOUT_SETTINGS['RETRY_DELAY']
+
+        try:
+            while interaction_count < MAX_DAILY_INTERACTIONS:
+                try:
+                    if consecutive_failures > 0:
+                        print(f"{self.print_timestamp()} {Fore.YELLOW}Cooling down for {retry_delay} seconds...{Style.RESET_ALL}")
+                        time.sleep(retry_delay)
+
+                    print(f"\n{Fore.CYAN}{'='*50}{Style.RESET_ALL}")
+                    print(f"{Fore.MAGENTA}Interaction #{interaction_count + 1}{Style.RESET_ALL}")
+                    print(f"{Fore.CYAN}Points: {self.daily_points}/{self.MAX_DAILY_POINTS}{Style.RESET_ALL}")
+
+                    endpoint = random.choice(list(AI_ENDPOINTS.keys()))
+                    question = self.get_unused_question(endpoint)
+                    
+                    print(f"\n{Fore.CYAN}Selected AI Assistant: {AI_ENDPOINTS[endpoint]['name']}")
+                    print(f"{Fore.CYAN}Question: {Fore.WHITE}{question}{Style.RESET_ALL}\n")
+                    
+                    response = self.send_ai_query(endpoint, question)
+                    
+                    if response and len(response.strip()) > 0:
+                        if self.report_usage(endpoint, question, response):
+                            self.daily_points += self.POINTS_PER_INTERACTION
+                            interaction_count += 1
+                            consecutive_failures = 0
+                            retry_delay = TIMEOUT_SETTINGS['RETRY_DELAY']  # Reset delay
+                            
+                            delay = random.uniform(15, 30)  # Increased delay between successful interactions
+                            print(f"\n{self.print_timestamp()} {Fore.YELLOW}Waiting {delay:.1f} seconds before next query...{Style.RESET_ALL}")
+                            time.sleep(delay)
+                            continue
+                    
+                    consecutive_failures += 1
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                        print(f"{Fore.RED}Too many consecutive failures. Stopping...{Style.RESET_ALL}")
+                        break
+                        
+                    retry_delay = min(retry_delay * 2, 60)  # Increased max delay to 60 seconds
+
+                except Exception as e:
+                    print(f"{self.print_timestamp()} {Fore.RED}Error in interaction: {str(e)}{Style.RESET_ALL}")
+                    consecutive_failures += 1
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                        break
+                    retry_delay = min(retry_delay * 2, 60)
+
+        except KeyboardInterrupt:
+            print(f"\n{self.print_timestamp()} {Fore.YELLOW}Script stopped by user{Style.RESET_ALL}")
+        
+        print("\n=== Final Statistics ===")
+        final_stats = self.check_stats()
+        if final_stats:
+            self.print_stats(final_stats)
 
 
-def main():
-    try:
-        automation = SecureKiteAIAutomation(DEFAULT_WALLET)
-        if automation.check_connection():
-            automation.run()
-        else:
-            print(f"{Fore.RED}Unable to establish connection{Style.RESET_ALL}")
-    except Exception as e:
-        print(f"{Fore.RED}Critical error: {str(e)}{Style.RESET_ALL}")
-        logging.error(f"Critical error in main: {str(e)}")
+def main() -> None:
+    print_banner = """
+╔══════════════════════════════════════════════╗
+║               KITE AI AUTOMATE               ║
+║     Github: https://github.com/im-hanzou     ║
+╚══════════════════════════════════════════════╝
+    """
+    print(Fore.CYAN + print_banner + Style.RESET_ALL)
+
+    wallet_address = input(
+        f"{Fore.YELLOW}Register first here: {Fore.GREEN}https://testnet.gokite.ai?r=cmuST6sG{Fore.YELLOW}\nNow, input your registered Wallet Address: {Style.RESET_ALL}"
+    )
+
+    automation = KiteAIAutomation(wallet_address)
+    automation.run()
 
 
 if __name__ == "__main__":
