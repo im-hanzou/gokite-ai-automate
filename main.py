@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import sys
 import json
 import logging
 import os
@@ -15,15 +15,21 @@ from colorama import Fore, Style, init
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, Timeout
 from urllib3.util import Retry
+from datetime import datetime, timezone
 
 # Initialize colorama
 init(autoreset=True)
 
-# Configuration
-MAX_DAILY_POINTS = 4000
-POINTS_PER_INTERACTION = 200
+# Konfigurasi utama
+MAX_DAILY_POINTS = 200
+POINTS_PER_INTERACTION = 10
 MAX_DAILY_INTERACTIONS = 20
-DEFAULT_WALLET = "0x664xxxxxxxxxxxxxxx2a7c17"
+DEFAULT_WALLET = "EVM-ADDRESS"  # Ganti dengan alamat wallet Anda
+
+# Proxy configuration
+PROXIES = {
+    "DROP_YOUR_PROXY-HTTP/SOCKS" # Ganti dengan proxy Anda
+}
 
 # Global Headers
 GLOBAL_HEADERS = {
@@ -46,9 +52,21 @@ BASE_URLS = {
     "STATS_API": "https://quests-usage-dev.prod.zettablock.com/api/user",
 }
 
-TIMEOUT_SETTINGS = {"CONNECT": 10, "READ": 30, "RETRY_DELAY": 3}
+TIMEOUT_SETTINGS = {"CONNECT": 10, "READ": 15, "RETRY_DELAY": 3}
 
-# Update endpoint Crypto Price Assistant dengan yang baru
+# Update session settings
+SESSION_SETTINGS = {
+    "MAX_RETRIES": 3,
+    "BACKOFF_FACTOR": 1,
+    "STATUS_FORCELIST": [408, 429, 500, 502, 503, 504],
+}
+
+RETRY_STRATEGY = Retry(
+    total=3,
+    backoff_factor=0.5,
+    status_forcelist=[429, 500, 502, 503, 504],
+)
+
 AI_ENDPOINTS = {
     "https://deployment-hp4y88pxnqxwlmpxllicjzzn.stag-vxzy.zettablock.com/main": {
         "agent_id": "deployment_Hp4Y88pxNQXwLMPxlLICJZzN",
@@ -85,19 +103,26 @@ AI_ENDPOINTS = {
 }
 
 class KiteAIAutomation:
-    def __init__(self, wallet_address: str) -> None:
+    def __init__(self, wallet_address: str = DEFAULT_WALLET) -> None:
         self.wallet_address = wallet_address
         self.daily_points = 0
         self.start_time = datetime.now()
         self.next_reset_time = self.start_time + timedelta(hours=24)
         self.session_id = str(uuid.uuid4())
         self.device_fingerprint = self._generate_device_fingerprint()
-        self.MAX_DAILY_POINTS = 4000
-        self.POINTS_PER_INTERACTION = 200
-        self.MAX_DAILY_INTERACTIONS = (
-            self.MAX_DAILY_POINTS // self.POINTS_PER_INTERACTION
-        )
+        self.MAX_DAILY_POINTS = 200  # Total maksimal 200 poin
+        self.POINTS_PER_INTERACTION = 10  # 10 poin per interaksi
+        self.MAX_DAILY_INTERACTIONS = 20  # 20 interaksi total
         self.used_questions: set[str] = set()
+        self.session = self._setup_session()
+
+    def _setup_session(self) -> requests.Session:
+        session = requests.Session()
+        session.proxies = PROXIES
+        adapter = HTTPAdapter(max_retries=RETRY_STRATEGY)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
 
     def _generate_device_fingerprint(self) -> str:
         components = [platform.system(), platform.machine(), str(uuid.getnode())]
@@ -106,9 +131,7 @@ class KiteAIAutomation:
     def reset_daily_points(self) -> bool:
         current_time = datetime.now()
         if current_time >= self.next_reset_time:
-            print(
-                f"{self.print_timestamp()} {Fore.GREEN}Resetting points for new 24-hour period{Style.RESET_ALL}"
-            )
+            print(f"{self.print_timestamp()} {Fore.GREEN}Resetting points for new 24-hour period{Style.RESET_ALL}")
             self.daily_points = 0
             self.next_reset_time = current_time + timedelta(hours=24)
             return True
@@ -118,12 +141,8 @@ class KiteAIAutomation:
         if self.daily_points >= self.MAX_DAILY_POINTS:
             wait_seconds = (self.next_reset_time - datetime.now()).total_seconds()
             if wait_seconds > 0:
-                print(
-                    f"{self.print_timestamp()} {Fore.YELLOW}Daily point limit reached ({self.MAX_DAILY_POINTS}){Style.RESET_ALL}"
-                )
-                print(
-                    f"{self.print_timestamp()} {Fore.YELLOW}Waiting until next reset at {self.next_reset_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}"
-                )
+                print(f"{self.print_timestamp()} {Fore.YELLOW}Daily point limit reached ({self.MAX_DAILY_POINTS}){Style.RESET_ALL}")
+                print(f"{self.print_timestamp()} {Fore.YELLOW}Waiting until next reset at {self.next_reset_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}")
                 time.sleep(wait_seconds)
                 self.reset_daily_points()
             return True
@@ -133,11 +152,7 @@ class KiteAIAutomation:
         return f"{Fore.YELLOW}[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]{Style.RESET_ALL}"
 
     def get_unused_question(self, endpoint: str) -> str:
-        available_questions = [
-            q
-            for q in AI_ENDPOINTS[endpoint]["questions"]
-            if q not in self.used_questions
-        ]
+        available_questions = [q for q in AI_ENDPOINTS[endpoint]["questions"] if q not in self.used_questions]
         if not available_questions:
             self.used_questions.clear()
             available_questions = AI_ENDPOINTS[endpoint]["questions"]
@@ -148,13 +163,11 @@ class KiteAIAutomation:
 
     def send_ai_query(self, endpoint: str, message: str) -> str:
         headers = GLOBAL_HEADERS.copy()
-        headers.update(
-            {
-                "Accept": "text/event-stream",
-                "X-Device-Fingerprint": self.device_fingerprint,
-                "X-Session-ID": self.session_id,
-            }
-        )
+        headers.update({
+            "Accept": "text/event-stream",
+            "X-Device-Fingerprint": self.device_fingerprint,
+            "X-Session-ID": self.session_id,
+        })
 
         data = {
             "message": message,
@@ -167,10 +180,17 @@ class KiteAIAutomation:
         }
 
         try:
-            response = requests.post(endpoint, headers=headers, json=data, stream=True)
-            accumulated_response = ""
+            response = self.session.post(
+                endpoint,
+                headers=headers,
+                json=data,
+                stream=True,
+                timeout=(TIMEOUT_SETTINGS['CONNECT'], TIMEOUT_SETTINGS['READ'])
+            )
 
+            accumulated_response = ""
             print(f"{Fore.CYAN}AI Response: {Style.RESET_ALL}", end="", flush=True)
+
             for line in response.iter_lines():
                 if line:
                     line_str = line.decode("utf-8")
@@ -181,32 +201,23 @@ class KiteAIAutomation:
                                 break
 
                             json_data = json.loads(json_str)
-                            content = (
-                                json_data.get("choices", [{}])[0]
-                                .get("delta", {})
-                                .get("content", "")
-                            )
+                            content = json_data.get("choices", [{}])[0].get("delta", {}).get("content", "")
                             if content:
                                 accumulated_response += content
-                                print(
-                                    Fore.MAGENTA + content + Style.RESET_ALL,
-                                    end="",
-                                    flush=True,
-                                )
+                                print(Fore.MAGENTA + content + Style.RESET_ALL, end="", flush=True)
                         except json.JSONDecodeError:
                             continue
 
             print()
             return accumulated_response.strip()
+
         except Exception as e:
-            print(
-                f"{self.print_timestamp()} {Fore.RED}Error in AI query: {str(e)}{Style.RESET_ALL}"
-            )
+            print(f"{self.print_timestamp()} {Fore.RED}Error in AI query: {str(e)}{Style.RESET_ALL}")
             return ""
 
     def report_usage(self, endpoint: str, message: str, response: str) -> bool:
         print(f"{self.print_timestamp()} {Fore.BLUE}Reporting usage...{Style.RESET_ALL}")
-        
+
         headers = GLOBAL_HEADERS.copy()
         headers.update({
             'accept': 'application/json',
@@ -214,7 +225,7 @@ class KiteAIAutomation:
             'X-Device-Fingerprint': self.device_fingerprint,
             'X-Session-ID': self.session_id,
         })
-        
+
         data = {
             "wallet_address": self.wallet_address,
             "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
@@ -226,64 +237,53 @@ class KiteAIAutomation:
                 "device_fingerprint": self.device_fingerprint
             }
         }
-        
-        max_retries = 5
-        base_delay = 3
-        
+
+        max_retries = 3
+        base_delay = 2
+
         for attempt in range(max_retries):
             try:
-                resp = requests.post(
+                resp = self.session.post(
                     f"{BASE_URLS['USAGE_API']}/api/report_usage",
                     headers=headers,
                     json=data,
                     timeout=(TIMEOUT_SETTINGS['CONNECT'], TIMEOUT_SETTINGS['READ'])
                 )
-                
+
                 if resp.status_code == 200:
                     print(f"{self.print_timestamp()} {Fore.GREEN}Usage report successful{Style.RESET_ALL}")
                     return True
-                
+
                 if resp.status_code == 429:  # Rate limit
                     wait_time = int(resp.headers.get('Retry-After', base_delay * (attempt + 1)))
                     print(f"{self.print_timestamp()} {Fore.YELLOW}Rate limited. Waiting {wait_time} seconds...{Style.RESET_ALL}")
                     time.sleep(wait_time)
                     continue
-                    
-                if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)  # exponential backoff
-                    print(f"{self.print_timestamp()} {Fore.YELLOW}Attempt {attempt + 1} failed with status {resp.status_code}. Waiting {delay} seconds...{Style.RESET_ALL}")
-                    time.sleep(delay)
-                else:
-                    print(f"{self.print_timestamp()} {Fore.RED}Final attempt failed with status {resp.status_code}{Style.RESET_ALL}")
-                    
-            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt)
-                    print(f"{self.print_timestamp()} {Fore.YELLOW}Attempt {attempt + 1} failed: {str(e)}. Waiting {delay} seconds...{Style.RESET_ALL}")
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}Attempt {attempt + 1} failed. Waiting {delay} seconds...{Style.RESET_ALL}")
                     time.sleep(delay)
                 else:
-                    print(f"{self.print_timestamp()} {Fore.RED}Final attempt failed: {str(e)}{Style.RESET_ALL}")
-        
+                    print(f"{self.print_timestamp()} {Fore.RED}All attempts failed{Style.RESET_ALL}")
+
+            except Exception as e:
+                print(f"{self.print_timestamp()} {Fore.RED}Error: {str(e)}{Style.RESET_ALL}")
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    time.sleep(delay)
+
         return False
 
     def check_stats(self) -> Dict:
-        url = f'https://quests-usage-dev.prod.zettablock.com/api/user/{self.wallet_address}/stats'
-        
-        headers = GLOBAL_HEADERS.copy()
-        headers.update({
-            'accept': 'application/json',  # Ubah accept header
-            'X-Device-Fingerprint': self.device_fingerprint,
-            'X-Session-ID': self.session_id,
-        })
-        
         try:
-            response = requests.get(url, headers=headers, timeout=15)  # Tambah timeout
+            response = self.session.get(
+                f"{BASE_URLS['STATS_API']}/{self.wallet_address}/stats",
+                headers=GLOBAL_HEADERS,
+                timeout=TIMEOUT_SETTINGS['READ']
+            )
             if response.status_code == 200:
                 return response.json()
-            print(f"{self.print_timestamp()} {Fore.RED}Stats check failed with status code: {response.status_code}{Style.RESET_ALL}")
-            return {}
-        except json.JSONDecodeError:
-            print(f"{self.print_timestamp()} {Fore.RED}Invalid JSON response from stats endpoint{Style.RESET_ALL}")
             return {}
         except Exception as e:
             print(f"{self.print_timestamp()} {Fore.RED}Error checking stats: {str(e)}{Style.RESET_ALL}")
@@ -291,96 +291,139 @@ class KiteAIAutomation:
 
     def print_stats(self, stats: Dict) -> None:
         print(f"\n{Fore.CYAN}=== Current Statistics ==={Style.RESET_ALL}")
-        print(
-            f"Total Interactions: {Fore.GREEN}{stats.get('total_interactions', 0)}{Style.RESET_ALL}"
-        )
+        print(f"Total Interactions: {Fore.GREEN}{stats.get('total_interactions', 0)}{Style.RESET_ALL}")
         print(f"Total Points: {Fore.GREEN}{self.daily_points}{Style.RESET_ALL}")
-        print(
-            f"Total Agents Used: {Fore.GREEN}{stats.get('total_agents_used', 0)}{Style.RESET_ALL}"
-        )
-        print(
-            f"Last Active: {Fore.YELLOW}{stats.get('last_active', 'N/A')}{Style.RESET_ALL}"
-        )
+        print(f"Total Agents Used: {Fore.GREEN}{stats.get('total_agents_used', 0)}{Style.RESET_ALL}")
+        print(f"Last Active: {Fore.YELLOW}{stats.get('last_active', 'N/A')}{Style.RESET_ALL}")
 
     def run(self) -> None:
-        print(f"{self.print_timestamp()} {Fore.GREEN}Starting KiteAI automation...{Style.RESET_ALL}")
-        print(f"{self.print_timestamp()} {Fore.CYAN}Wallet Address: {self.wallet_address}{Style.RESET_ALL}")
-        
-        interaction_count = 0
-        consecutive_failures = 0
-        MAX_CONSECUTIVE_FAILURES = 5  # Increased from 3
-        retry_delay = TIMEOUT_SETTINGS['RETRY_DELAY']
-
         try:
+            current_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"\n{Fore.CYAN}=== Session Information ==={Style.RESET_ALL}")
+            print(f"Current Time (UTC): {Fore.GREEN}{current_time}{Style.RESET_ALL}")
+            print(f"Wallet: {Fore.GREEN}{self.wallet_address}{Style.RESET_ALL}\n")
+
+            interaction_count = 0
+            consecutive_failures = 0
+            MAX_CONSECUTIVE_FAILURES = 5
+            retry_delay = TIMEOUT_SETTINGS['RETRY_DELAY']
+
             while interaction_count < MAX_DAILY_INTERACTIONS:
                 try:
                     if consecutive_failures > 0:
-                        print(f"{self.print_timestamp()} {Fore.YELLOW}Cooling down for {retry_delay} seconds...{Style.RESET_ALL}")
-                        time.sleep(retry_delay)
+                        cooldown = min(retry_delay * (2 ** consecutive_failures), 30)
+                        print(f"{self.print_timestamp()} {Fore.YELLOW}Cooling down for {cooldown} seconds...{Style.RESET_ALL}")
+                        time.sleep(cooldown)
 
                     print(f"\n{Fore.CYAN}{'='*50}{Style.RESET_ALL}")
-                    print(f"{Fore.MAGENTA}Interaction #{interaction_count + 1}{Style.RESET_ALL}")
-                    print(f"{Fore.CYAN}Points: {self.daily_points}/{self.MAX_DAILY_POINTS}{Style.RESET_ALL}")
+                    print(f"{Fore.MAGENTA}Interaction #{interaction_count + 1}/20{Style.RESET_ALL}")
+                    print(f"{Fore.CYAN}Points: {self.daily_points}/200 ({(interaction_count + 1) * 10} expected){Style.RESET_ALL}")
 
                     endpoint = random.choice(list(AI_ENDPOINTS.keys()))
                     question = self.get_unused_question(endpoint)
-                    
+
                     print(f"\n{Fore.CYAN}Selected AI Assistant: {AI_ENDPOINTS[endpoint]['name']}")
                     print(f"{Fore.CYAN}Question: {Fore.WHITE}{question}{Style.RESET_ALL}\n")
-                    
+
                     response = self.send_ai_query(endpoint, question)
-                    
+
                     if response and len(response.strip()) > 0:
-                        if self.report_usage(endpoint, question, response):
-                            self.daily_points += self.POINTS_PER_INTERACTION
-                            interaction_count += 1
-                            consecutive_failures = 0
-                            retry_delay = TIMEOUT_SETTINGS['RETRY_DELAY']  # Reset delay
-                            
-                            delay = random.uniform(15, 30)  # Increased delay between successful interactions
-                            print(f"\n{self.print_timestamp()} {Fore.YELLOW}Waiting {delay:.1f} seconds before next query...{Style.RESET_ALL}")
-                            time.sleep(delay)
-                            continue
-                    
+                        try:
+                            self.report_usage(endpoint, question, response)
+                        except:
+                            pass  # Continue even if reporting fails
+
+                        self.daily_points += self.POINTS_PER_INTERACTION
+                        interaction_count += 1
+                        consecutive_failures = 0
+
+                        delay = random.uniform(8, 12)
+                        print(f"\n{self.print_timestamp()} {Fore.YELLOW}Next query in {delay:.1f} seconds...{Style.RESET_ALL}")
+                        time.sleep(delay)
+                        continue
+
                     consecutive_failures += 1
                     if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                        print(f"{Fore.RED}Too many consecutive failures. Stopping...{Style.RESET_ALL}")
-                        break
-                        
-                    retry_delay = min(retry_delay * 2, 60)  # Increased max delay to 60 seconds
+                        print(f"{Fore.RED}Too many consecutive failures. Restarting...{Style.RESET_ALL}")
+                        consecutive_failures = 0
+                        time.sleep(30)
 
                 except Exception as e:
-                    print(f"{self.print_timestamp()} {Fore.RED}Error in interaction: {str(e)}{Style.RESET_ALL}")
+                    print(f"{self.print_timestamp()} {Fore.RED}Error: {str(e)}{Style.RESET_ALL}")
                     consecutive_failures += 1
                     if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                        break
-                    retry_delay = min(retry_delay * 2, 60)
+                        print(f"{Fore.RED}Critical error. Restarting...{Style.RESET_ALL}")
+                        consecutive_failures = 0
+                        time.sleep(30)
 
         except KeyboardInterrupt:
             print(f"\n{self.print_timestamp()} {Fore.YELLOW}Script stopped by user{Style.RESET_ALL}")
-        
-        print("\n=== Final Statistics ===")
-        final_stats = self.check_stats()
-        if final_stats:
-            self.print_stats(final_stats)
+            print(f"\n{Fore.CYAN}=== Final Statistics ==={Style.RESET_ALL}")
+            print(f"Total Interactions: {Fore.GREEN}{interaction_count}{Style.RESET_ALL}")
+            print(f"Total Points: {Fore.GREEN}{self.daily_points}{Style.RESET_ALL}")
+            try:
+                with self.session.get(
+                    f"{BASE_URLS['STATS_API']}/{self.wallet_address}/stats",
+                    headers=GLOBAL_HEADERS,
+                    timeout=5  # Short timeout for final stats
+                ) as response:
+                    if response.status_code == 200:
+                        stats = response.json()
+                        print(f"Total Agents Used: {Fore.GREEN}{stats.get('total_agents_used', 0)}{Style.RESET_ALL}")
+                        print(f"Last Active: {Fore.YELLOW}{stats.get('last_active', 'N/A')}{Style.RESET_ALL}")
+            except:
+                pass  # Ignore errors when getting final stats
+            finally:
+                print(f"\n{Fore.YELLOW}Session ended.{Style.RESET_ALL}")
+                sys.exit(0)
 
 
 def main() -> None:
-    print_banner = """
-╔══════════════════════════════════════════════╗
-║               KITE AI AUTOMATE               ║
-║     Github: https://github.com/im-hanzou     ║
-╚══════════════════════════════════════════════╝
-    """
-    print(Fore.CYAN + print_banner + Style.RESET_ALL)
+    try:
+        print_banner = """
+         ₍  ˃ᯅ˂ ₎
+        （ ͜•人 ͜•）
+         )  •  (
+         (‿ώ‿)
+           ꪊꪻ
+        """
+        print(Fore.CYAN + print_banner + Style.RESET_ALL)
 
-    wallet_address = input(
-        f"{Fore.YELLOW}Register first here: {Fore.GREEN}https://testnet.gokite.ai?r=cmuST6sG{Fore.YELLOW}\nNow, input your registered Wallet Address: {Style.RESET_ALL}"
-    )
+        # Get current UTC time
+        current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        print(
+            f"Current Date and Time (UTC): {Fore.GREEN}{current_time}{Style.RESET_ALL}"
+        )
 
-    automation = KiteAIAutomation(wallet_address)
-    automation.run()
+        try:
+            wallet_address = (
+                input(
+                    f"\n{Fore.YELLOW}ENTER your registered Wallet Address "
+                    f"[{Fore.GREEN}{DEFAULT_WALLET}{Fore.YELLOW}]: {Style.RESET_ALL}"
+                ).strip()
+                or DEFAULT_WALLET
+            )
+
+            automation = KiteAIAutomation(wallet_address)
+            automation.run()
+
+        except KeyboardInterrupt:
+            print(
+                f"\n{Fore.YELLOW}Script initialization cancelled by user.{Style.RESET_ALL}"
+            )
+            sys.exit(0)
+
+    except Exception as e:
+        print(f"\n{Fore.RED}Fatal Error: {str(e)}{Style.RESET_ALL}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n{Fore.YELLOW}Script terminated by user.{Style.RESET_ALL}")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n{Fore.RED}Unexpected error: {str(e)}{Style.RESET_ALL}")
+        sys.exit(1)
