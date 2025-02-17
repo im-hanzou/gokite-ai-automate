@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 import random
 import time
 from typing import Dict, List
@@ -8,7 +9,25 @@ from colorama import init, Fore, Back, Style
 
 init(autoreset=True)
 
-# Global Headers
+def read_wallet_address_from_file(file_path: str) -> str:
+    """
+    Read wallet address from configuration file.
+    Supports .env and tokens.txt formats.
+    """
+    if not os.path.exists(file_path):
+        return None
+
+    with open(file_path, 'r') as f:
+        content = f.read().strip()
+
+    # Check format .env
+    if '=' in content:
+        key, value = content.split('=', 1)
+        if key.strip().upper() == "WALLET_ADDRESS":
+            return value.strip()
+
+    return content.strip()
+
 GLOBAL_HEADERS = {
     'Accept-Language': 'en-GB,en;q=0.9,en-US;q=0.8,id;q=0.7',
     'Connection': 'keep-alive',
@@ -25,8 +44,8 @@ GLOBAL_HEADERS = {
 }
 
 AI_ENDPOINTS = {
-    "https://deployment-hp4y88pxnqxwlmpxllicjzzn.stag-vxzy.zettablock.com/main": {
-        "agent_id": "deployment_Hp4Y88pxNQXwLMPxlLICJZzN",
+    "https://deployment-uu9y1z4z85rapgwkss1muuiz.stag-vxzy.zettablock.com/main": {
+        "agent_id": "deployment_UU9y1Z4Z85RAPGwkss1mUUiZ",
         "name": "Kite AI Assistant",
         "questions": [
             "What is Kite AI?",
@@ -41,8 +60,8 @@ AI_ENDPOINTS = {
             "What are the use cases for Kite AI?"
         ]
     },
-    "https://deployment-nc3y3k7zy6gekszmcsordhu7.stag-vxzy.zettablock.com/main": {
-        "agent_id": "deployment_nC3y3k7zy6gekSZMCSordHu7",
+    "https://deployment-ecz5o55dh0dbqagkut47kzyc.stag-vxzy.zettablock.com/main": {
+        "agent_id": "deployment_ECz5O55dH0dBQaGKuT47kzYC",
         "name": "Crypto Price Assistant",
         "questions": [
             "Price of solana",
@@ -99,9 +118,10 @@ class KiteAIAutomation:
 
     def get_recent_transactions(self) -> List[str]:
         print(f"{self.print_timestamp()} {Fore.BLUE}Fetching recent transactions...{Style.RESET_ALL}")
-        url = 'https://testnet.kitescan.ai/api/v2/transactions'
+        url = 'https://testnet.kitescan.ai/api/v2/advanced-filters'
         params = {
-            'filter': 'validated'
+            'transaction_types': 'coin_transfer',
+            'age': '5m'
         }
         
         headers = GLOBAL_HEADERS.copy()
@@ -260,9 +280,26 @@ def main():
 ╚══════════════════════════════════════════════╝
     """
     print(Fore.CYAN + print_banner + Style.RESET_ALL)
-    
-    wallet_address = input(f"{Fore.YELLOW}Register first here: {Fore.GREEN}https://testnet.gokite.ai?r=cmuST6sG{Fore.YELLOW} and Clear Tasks!\nNow, input your registered Wallet Address: {Style.RESET_ALL}")
-    
+
+    # Read address from config file
+    config_files = [".env", "tokens.txt"]
+    wallet_address = None
+
+    for file in config_files:
+        wallet_address = read_wallet_address_from_file(file)
+        if wallet_address:
+            print(f"{Fore.GREEN}Wallet address loaded from {file}: {wallet_address}{Style.RESET_ALL}")
+            break
+
+    if not wallet_address:
+        wallet_address = input(
+            f"{Fore.YELLOW}Register first here: {Fore.GREEN}https://testnet.gokite.ai?r=cmuST6sG{Fore.YELLOW} and Clear Tasks!\nNow, input your registered Wallet Address: {Style.RESET_ALL}"
+        )
+
+    if not wallet_address:
+        print(f"{Fore.RED}Error: Wallet address is required!{Style.RESET_ALL}")
+        return
+
     automation = KiteAIAutomation(wallet_address)
     automation.run()
 
