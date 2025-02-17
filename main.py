@@ -24,11 +24,11 @@ init(autoreset=True)
 MAX_DAILY_POINTS = 200
 POINTS_PER_INTERACTION = 10
 MAX_DAILY_INTERACTIONS = 20
-DEFAULT_WALLET = "EVM-ADDRESS"  # Ganti dengan alamat wallet Anda
+DEFAULT_WALLET = "0x6646de28934127ba20ea5444206cfd1c382a7c17"
 
 # Proxy configuration
 PROXIES = {
-    "DROP_YOUR_PROXY-HTTP/SOCKS" # Ganti dengan proxy Anda
+    "http://arrowospff4oxrepy1q-session-vnkp2css-duration-600:n5bydwiqk4jjwffx@isp.proxies.fo:10808"
 }
 
 # Global Headers

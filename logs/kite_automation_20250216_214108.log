@@ -1,0 +1,3 @@
+2025-02-16 21:41:12,520 - WARNING - [main.py:184] - Failed to verify proxy: http://proxy1.example.com:8080
+2025-02-16 21:41:13,657 - WARNING - [main.py:184] - Failed to verify proxy: http://proxy2.example.com:8080
+2025-02-16 21:41:14,054 - WARNING - [main.py:184] - Failed to verify proxy: http://proxy3.example.com:8080
