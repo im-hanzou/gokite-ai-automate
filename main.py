@@ -11,8 +11,8 @@ init(autoreset=True)
 
 def read_wallet_address_from_file(file_path: str) -> str:
     """
-    Read wallet address from configuration file.
-    Supports .env and tokens.txt formats.
+    Membaca alamat wallet dari file konfigurasi.
+    Mendukung format .env dan tokens.txt.
     """
     if not os.path.exists(file_path):
         return None
@@ -20,14 +20,16 @@ def read_wallet_address_from_file(file_path: str) -> str:
     with open(file_path, 'r') as f:
         content = f.read().strip()
 
-    # Check format .env
+    # Cek format .env
     if '=' in content:
         key, value = content.split('=', 1)
         if key.strip().upper() == "WALLET_ADDRESS":
             return value.strip()
 
+    # Format lain (misalnya tokens.txt)
     return content.strip()
 
+# Global Headers
 GLOBAL_HEADERS = {
     'Accept-Language': 'en-GB,en;q=0.9,en-US;q=0.8,id;q=0.7',
     'Connection': 'keep-alive',
@@ -274,13 +276,14 @@ class KiteAIAutomation:
 def main():
     print_banner = """
 ╔══════════════════════════════════════════════╗
-║               KITE AI AUTOMATE               ║
+║               KITE AIH AUTOBANG              ║
+║     Github: https://github.com/arcxteam      ║
 ║     Github: https://github.com/im-hanzou     ║
 ╚══════════════════════════════════════════════╝
     """
     print(Fore.CYAN + print_banner + Style.RESET_ALL)
 
-    # Read address from config file
+    # Coba baca alamat wallet dari file konfigurasi
     config_files = [".env", "tokens.txt"]
     wallet_address = None
 
@@ -290,11 +293,13 @@ def main():
             print(f"{Fore.GREEN}Wallet address loaded from {file}: {wallet_address}{Style.RESET_ALL}")
             break
 
+    # Jika tidak ada file konfigurasi, minta input manual
     if not wallet_address:
         wallet_address = input(
-            f"{Fore.YELLOW}Register first here: {Fore.GREEN}https://testnet.gokite.ai?r=cmuST6sG{Fore.YELLOW} and Clear Tasks!\nNow, input your registered Wallet Address: {Style.RESET_ALL}"
+            f"{Fore.YELLOW}Register first here: {Fore.GREEN}join https://testnet.gokite.ai/?r=Y2d9Cgy2{Fore.YELLOW} and Clear Tasks!\nNow, input your registered Wallet Address: {Style.RESET_ALL}"
         )
 
+    # Validasi alamat wallet
     if not wallet_address:
         print(f"{Fore.RED}Error: Wallet address is required!{Style.RESET_ALL}")
         return
