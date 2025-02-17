@@ -1,7 +1,0 @@
-2025-02-17 00:53:24,506 - ERROR - [main.py:713] - Error in main loop: cannot access local variable 'current_retry' where it is not associated with a value
-2025-02-17 00:53:26,507 - INFO - [main.py:402] - Fetching transactions securely...
-2025-02-17 00:53:28,534 - INFO - [main.py:260] - Request to https://testnet.kitescan.ai/api/v2/transactions succeeded with status 200
-2025-02-17 00:53:44,324 - WARNING - [connectionpool.py:870] - Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ReadTimeoutError("HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Read timed out. (read timeout=15)")': /api/user/0x6646de28934127ba20ea5444206cfd1c382a7c17/stats
-2025-02-17 00:54:02,111 - WARNING - [connectionpool.py:870] - Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ReadTimeoutError("HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Read timed out. (read timeout=15)")': /api/user/0x6646de28934127ba20ea5444206cfd1c382a7c17/stats
-2025-02-17 00:54:21,891 - WARNING - [connectionpool.py:870] - Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'ReadTimeoutError("HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Read timed out. (read timeout=15)")': /api/user/0x6646de28934127ba20ea5444206cfd1c382a7c17/stats
-2025-02-17 00:54:42,692 - INFO - [main.py:728] - Received shutdown signal, cleaning up...

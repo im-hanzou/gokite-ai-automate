@@ -1,2 +1,0 @@
-2025-02-17 01:20:58,200 - ERROR - Error checking points status: HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Max retries exceeded with url: /api/user/0x6646de28934127ba20ea5444206cfd1c382a7c17/stats (Caused by ResponseError('too many 502 error responses'))
-2025-02-17 01:21:21,061 - ERROR - Error checking points status: HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Max retries exceeded with url: /api/user/0x6646de28934127ba20ea5444206cfd1c382a7c17/stats (Caused by ResponseError('too many 503 error responses'))
