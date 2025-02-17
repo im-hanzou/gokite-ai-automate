@@ -1,111 +1,171 @@
 # Kite AI Automation
+
 An automated script for interacting with Kite AI Assistant and Crypto Price Assistant on the Kite AI testnet platform.
 
 ## Features
-* Automated interaction with multiple Kite AI agents
-* Point accumulation system (up to 200 points daily)
-* Intelligent question rotation
-* Proxy support
-* Automatic session management
-* Rate limiting and error handling
-* Detailed statistics tracking
+- Automated interaction with multiple Kite AI agents
+- Point accumulation system (up to 200 points daily)
+- Intelligent question rotation
+- Proxy support
+- Automatic session management
+- Rate limiting and error handling
+- Detailed statistics tracking
 
-## Known Issues
-The bot may display the following error message during operation:
-```
-Error: HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Read timed out. (read timeout=15)
-```
-**Note**: This is a known issue with the connection to the usage tracking server. The bot continues to function normally and accumulate points despite this error message. No action is required from users when this message appears.
+## Prerequisites
 
-## Requirements
-* Python 3.7+
-* Required Python packages:
-   * requests
-   * colorama
-   * urllib3
+### System Requirements
+- Python 3.7 or higher
+- pip (Python package installer)
+- Internet connection
+- (Optional) Proxy service
+
+### Required Python Packages
+```bash
+pip install requests colorama urllib3
+```
+
+Or install all requirements at once using:
+```bash
+pip install -r requirements.txt
+```
 
 ## Installation
-1. Clone the repository:
+
+1. Clone or download the repository:
 ```bash
-git clone https://github.com/Madleyym/gokite-ai-automate
+git clone https://github.com/yourusername/kite-ai-automation.git
 cd kite-ai-automation
 ```
-2. Install required packages:
+
+2. Create a requirements.txt file with the following content:
+```
+requests>=2.26.0
+colorama>=0.4.4
+urllib3>=1.26.7
+```
+
+3. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Configuration
-The script includes several configurable parameters in the code:
-* `MAX_DAILY_POINTS`: Maximum points that can be earned daily (default: 200)
-* `POINTS_PER_INTERACTION`: Points earned per interaction (default: 10)
-* `MAX_DAILY_INTERACTIONS`: Maximum number of daily interactions (default: 20)
-* `DEFAULT_WALLET`: Default wallet address
-* `PROXIES`: Proxy configuration settings
+
+Before running the bot, you may want to modify these settings in the code:
+
+1. Wallet Configuration:
+```python
+DEFAULT_WALLET = "YOUR_ADDRESS"
+```
+
+2. Proxy Configuration:
+```python
+PROXIES = {
+    "YOUR_PROXY_HTTP/SOCKS5"
+}
+```
+
+3. Point System Settings:
+```python
+MAX_DAILY_POINTS = 200
+POINTS_PER_INTERACTION = 10
+MAX_DAILY_INTERACTIONS = 20
+```
 
 ## Usage
-1. Run the script:
+
+1. Start the bot:
 ```bash
 python main.py
 ```
+
 2. When prompted, enter your wallet address or press Enter to use the default wallet.
-3. The script will automatically:
-   * Rotate between different AI assistants
-   * Ask random predefined questions
-   * Track points and interactions
-   * Report usage statistics
-   * Handle errors and retries
 
-## Features Details
-
-### Point System
-* Each interaction earns 10 points
-* Daily maximum of 200 points
-* Points reset every 24 hours
-
-### AI Assistants
-1. Kite AI Assistant
-   * Provides information about Kite AI platform
-   * Answers technical questions
-2. Crypto Price Assistant
-   * Provides cryptocurrency price information
-   * Market analysis and trends
-
-### Safety Features
-* Rate limiting protection
-* Error handling with exponential backoff
-* Session management
-* Device fingerprinting
-* Automatic cooldown periods
-
-## Error Handling
-The script includes comprehensive error handling:
-* Connection timeout handling
-* Rate limit management
-* Automatic retries with exponential backoff
-* Session recovery
-* Critical error handling
-* Graceful handling of usage tracking server timeouts
-
-## Statistics
-The script provides real-time statistics:
-* Total interactions
-* Points earned
-* Agents used
-* Last active timestamp
-* Current session information
-
-## Notes
-* The script uses UTC time for all operations
-* Proxy configuration is required for proper operation
-* Maximum 20 interactions per 24-hour period
-* Automatic cooldown between requests
-* Usage tracking server timeouts do not affect bot functionality
+3. The bot will automatically:
+   - Rotate between AI assistants
+   - Ask predefined questions
+   - Track points and interactions
+   - Handle errors and retries
+   - Report usage statistics
 
 ## Troubleshooting
-* If you see the timeout error message from the usage tracking server, no action is required - the bot will continue to function normally
-* The error is related to the statistics tracking system and does not impact point accumulation or interaction success
-* The bot includes automatic retry mechanisms for other types of errors
+
+### Common Issues
+
+1. Connection Timeout Error
+```
+Error: HTTPSConnectionPool(host='quests-usage-dev.prod.zettablock.com', port=443): Read timed out. (read timeout=15)
+```
+**Solution**: This is a known issue with the usage tracking server. The bot continues to function normally despite this error. No action required.
+
+2. Proxy Connection Issues
+- Verify your proxy configuration in the PROXIES variable
+- Ensure your proxy service is active
+- Check proxy credentials if required
+
+3. Rate Limiting
+- The bot includes automatic handling for rate limits
+- Built-in cooldown periods between requests
+- Exponential backoff for retries
+
+### Error Prevention
+
+1. Always use a stable internet connection
+2. Configure proper proxy settings if required
+3. Don't modify the cooldown and retry settings unless necessary
+4. Keep Python and required packages updated
+
+## Safety Features
+
+1. Rate Limiting Protection:
+- Automatic cooldown periods
+- Exponential backoff for retries
+- Maximum retry attempts
+
+2. Session Management:
+- Unique session IDs
+- Device fingerprinting
+- Automatic session recovery
+
+3. Error Handling:
+- Connection timeout handling
+- Rate limit management
+- Critical error recovery
+- Graceful shutdown
+
+## Monitoring
+
+The bot provides real-time statistics:
+- Current points earned
+- Total interactions
+- Success/failure rates
+- Session duration
+- Agent usage statistics
+
+## Best Practices
+
+1. Operation:
+- Run the bot on a stable network
+- Use a reliable proxy service if needed
+- Monitor the bot initially to ensure proper operation
+
+2. Maintenance:
+- Regularly update Python packages
+- Check for script updates
+- Monitor proxy health if using proxies
+
+3. Performance:
+- Don't modify default timings unless necessary
+- Keep logs for troubleshooting
+- Monitor system resources
+
+## Support
+
+For issues and updates:
+1. Check the troubleshooting section
+2. Report issues through GitHub
+3. Check for script updates regularly
 
 ## Disclaimer
-This script is for educational purposes only. Please ensure you comply with Kite AI's terms of service when using this automation tool.
+
+This automation tool is not officially associated with Kite AI. Use at your own discretion and ensure compliance with all relevant terms of service.
