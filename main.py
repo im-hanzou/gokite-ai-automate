@@ -24,11 +24,11 @@ init(autoreset=True)
 MAX_DAILY_POINTS = 200
 POINTS_PER_INTERACTION = 10
 MAX_DAILY_INTERACTIONS = 20
-DEFAULT_WALLET = "0x6646de28934127ba20ea5444206cfd1c382a7c17"
+DEFAULT_WALLET = "YOUR_WALLET_ADDRESS" # Ganti dengan alamat dompet Anda
 
 # Proxy configuration
 PROXIES = {
-    "http://arrowospff4oxrepy1q-session-vnkp2css-duration-600:n5bydwiqk4jjwffx@isp.proxies.fo:10808"
+    "YOUR_PROXY_HTTP/SOCKS5" # Ganti dengan proxy Anda
 }
 
 # Global Headers
@@ -378,23 +378,23 @@ class KiteAIAutomation:
                 sys.exit(0)
 
 
+def print_timestamp(self) -> str:
+    return f"{Fore.YELLOW}[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}]{Style.RESET_ALL}"
+
 def main() -> None:
     try:
         print_banner = """
-         ₍  ˃ᯅ˂ ₎
-        （ ͜•人 ͜•）
-         )  •  (
-         (‿ώ‿)
-           ꪊꪻ
+╔══════════════════════════════════════════════╗
+║               KITE AI AUTOMATE               ║
+║          REPORT ON ISSUE IF NEEDED           ║
+╚══════════════════════════════════════════════╝
         """
         print(Fore.CYAN + print_banner + Style.RESET_ALL)
 
-        # Get current UTC time
+        # Format timestamp sesuai permintaan
         current_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        print(
-            f"Current Date and Time (UTC): {Fore.GREEN}{current_time}{Style.RESET_ALL}"
-        )
-
+        print(f"Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): {Fore.GREEN}{current_time}{Style.RESET_ALL}")
+        
         try:
             wallet_address = (
                 input(
