@@ -2,6 +2,7 @@ import requests
 import json
 import random
 import time
+import re
 from typing import Dict, List
 from datetime import datetime, timedelta
 from colorama import init, Fore, Back, Style
@@ -23,128 +24,6 @@ GLOBAL_HEADERS = {
     'sec-ch-ua-platform': '"Windows"'
 }
 
-AI_ENDPOINTS = {
-    "https://deployment-htmtbvzpc0vboktahrrv1b7f.stag-vxzy.zettablock.com/main": {
-        "agent_id": "deployment_htmTBVZpC0vbOkTAHRrv1b7F",
-        "name": "Professor",
-        "questions": [
-            "What is Kite AI's core technology?",
-            "How does Kite AI improve developer productivity?",
-            "What are the key features of Kite AI's platform?",
-            "How does Kite AI handle data security?",
-            "What makes Kite AI different from other AI platforms?",
-            "How does Kite AI integrate with existing systems?",
-            "What programming languages does Kite AI support?",
-            "How does Kite AI's API work?",
-            "What are Kite AI's scalability features?",
-            "How does Kite AI help with code quality?",
-            "What is Kite AI's approach to machine learning?",
-            "How does Kite AI handle version control?",
-            "What are Kite AI's deployment options?",
-            "How does Kite AI assist with debugging?",
-            "What are Kite AI's code completion capabilities?",
-            "How does Kite AI handle multiple projects?",
-            "What is Kite AI's pricing structure?",
-            "How does Kite AI support team collaboration?",
-            "What are Kite AI's documentation features?",
-            "How does Kite AI implement code reviews?",
-            "What is Kite AI's update frequency?",
-            "How does Kite AI handle error detection?",
-            "What are Kite AI's testing capabilities?",
-            "How does Kite AI support microservices?",
-            "What is Kite AI's cloud infrastructure?",
-            "How does Kite AI handle API documentation?",
-            "What are Kite AI's code analysis features?",
-            "How does Kite AI support continuous integration?",
-            "What is Kite AI's approach to code optimization?",
-            "How does Kite AI handle multilingual support?",
-            "What are Kite AI's security protocols?",
-            "How does Kite AI manage user permissions?",
-            "What is Kite AI's backup system?",
-            "How does Kite AI handle code refactoring?",
-            "What are Kite AI's monitoring capabilities?",
-            "How does Kite AI support remote development?",
-            "What is Kite AI's approach to technical debt?",
-            "How does Kite AI handle code dependencies?",
-            "What are Kite AI's performance metrics?",
-            "How does Kite AI support code documentation?",
-            "What is Kite AI's approach to API versioning?",
-            "How does Kite AI handle load balancing?",
-            "What are Kite AI's debugging tools?",
-            "How does Kite AI support code generation?",
-            "What is Kite AI's approach to data validation?",
-            "How does Kite AI handle error logging?",
-            "What are Kite AI's testing frameworks?",
-            "How does Kite AI support code deployment?",
-            "What is Kite AI's approach to code maintenance?",
-            "How does Kite AI handle system integration?"
-        ]
-    },
-    "https://deployment-nfkj10q1reqxkm4crtrlzmt9.stag-vxzy.zettablock.com/main": {
-        "agent_id": "deployment_nfkj10Q1ReqxkM4crtrlZMt9",
-        "name": "Crypto Buddy",
-        "questions": [
-            "What is Bitcoin's current price?",
-            "Show me Ethereum price",
-            "What's the price of BNB?",
-            "Current Solana price?",
-            "What's AVAX trading at?",
-            "Show me MATIC price",
-            "Current price of DOT?",
-            "What's the XRP price now?",
-            "Show me ATOM price",
-            "What's the current LINK price?",
-            "Show me ADA price",
-            "What's NEAR trading at?",
-            "Current price of FTM?",
-            "What's the ALGO price?",
-            "Show me DOGE price",
-            "What's SHIB trading at?",
-            "Current price of UNI?",
-            "What's the AAVE price?",
-            "Show me LTC price",
-            "What's ETC trading at?",
-            "Show me the price of SAND",
-            "What's MANA's current price?",
-            "Current price of APE?",
-            "What's the GRT price?",
-            "Show me BAT price",
-            "What's ENJ trading at?",
-            "Current price of CHZ?",
-            "What's the CAKE price?",
-            "Show me VET price",
-            "What's ONE trading at?",
-            "Show me the price of GALA",
-            "What's THETA's current price?",
-            "Current price of ICP?",
-            "What's the FIL price?",
-            "Show me EOS price",
-            "What's XTZ trading at?",
-            "Show me the price of ZIL",
-            "What's WAVES current price?",
-            "Current price of KSM?",
-            "What's the DASH price?",
-            "Show me NEO price",
-            "What's XMR trading at?",
-            "Show me the price of IOTA",
-            "What's EGLD's current price?",
-            "Current price of COMP?",
-            "What's the SNX price?",
-            "Show me MKR price",
-            "What's CRV trading at?",
-            "Show me the price of RUNE",
-            "What's 1INCH current price?"
-        ]
-    },
-    "https://deployment-zs6oe0edbuquit8kk0v10djt.stag-vxzy.zettablock.com/main": {
-        "agent_id": "deployment_zs6OE0EdBuQuit8KK0V10dJT",
-        "name": "Sherlock",
-        "questions": []
-    }
-}
-
-SHERLOCK_ENDPOINT = "https://deployment-zs6oe0edbuquit8kk0v10djt.stag-vxzy.zettablock.com/main"
-
 class KiteAIAutomation:
     def __init__(self, wallet_address: str):
         self.wallet_address = wallet_address
@@ -156,6 +35,204 @@ class KiteAIAutomation:
         self.MAX_DAILY_INTERACTIONS = self.MAX_DAILY_POINTS // self.POINTS_PER_INTERACTION
         self.current_day_transactions = []
         self.last_transaction_fetch = None
+        self.transactions_fetch_day = None 
+        self.agents_config = {}
+        self.usage_api_endpoint = ""
+        
+        self.fallback_agents = {
+            "https://deployment-r89ftdnxa7jwwhyr97wq9lkg.stag-vxzy.zettablock.com/main": {
+                "agent_id": "deployment_R89FtdnXa7jWWHyr97WQ9LKG",
+                "name": "Professor",
+                "questions": self.generate_questions_for_agent("Professor")
+            },
+            "https://deployment-fsegykivcls3m9nrpe9zguy9.stag-vxzy.zettablock.com/main": {
+                "agent_id": "deployment_fseGykIvCLs3m9Nrpe9Zguy9",
+                "name": "Crypto Buddy",
+                "questions": self.generate_questions_for_agent("Crypto Buddy")
+            },
+            "https://deployment-xkerjnnbdtazr9e15x3y7fi8.stag-vxzy.zettablock.com/main": {
+                "agent_id": "deployment_xkerJnNBdTaZr9E15X3Y7FI8",
+                "name": "Sherlock",
+                "questions": []
+            }
+        }
+        
+    def fetch_agent_configuration(self):
+        print(f"{self.print_timestamp()} {Fore.BLUE}Fetching latest agent configuration...{Style.RESET_ALL}")
+        
+        try:
+            main_page_response = requests.get("https://agents.testnet.gokite.ai/", headers=GLOBAL_HEADERS)
+            main_page_content = main_page_response.text
+            
+            config_pattern = re.compile(r'/_next/static/chunks/app/layout-[a-z0-9]+\.js.*?["\']')
+            config_matches = config_pattern.findall(main_page_content)
+            
+            self.agents_config = {}
+            found_agents = False
+            
+            for config_file in config_matches:
+                config_url = "https://agents.testnet.gokite.ai" + config_file
+                
+                try:
+                    config_response = requests.get(config_url, headers=GLOBAL_HEADERS)
+                    config_content = config_response.text
+                    
+                    agent_pattern = re.compile(r'id:"([^"]+)",name:"([^"]+)",endpoint:"([^"]+)"')
+                    agent_matches = agent_pattern.findall(config_content)
+                    
+                    if agent_matches:
+                        for agent_id, agent_name, agent_endpoint in agent_matches:
+                            endpoint_url = agent_endpoint + "/main"
+                            
+                            self.agents_config[endpoint_url] = {
+                                "agent_id": agent_id,
+                                "name": agent_name,
+                                "questions": self.generate_questions_for_agent(agent_name)
+                            }
+                            
+                            print(f"{self.print_timestamp()} {Fore.GREEN}Added agent: {agent_name} ({agent_id}){Style.RESET_ALL}")
+                            found_agents = True
+                        
+                        if found_agents and len(self.agents_config) >= 3:
+                            break
+                except Exception as e:
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}Error processing config file {config_url}: {e}{Style.RESET_ALL}")
+                    continue
+            
+            if len(self.agents_config) > 0:
+                print(f"{self.print_timestamp()} {Fore.GREEN}Successfully configured {len(self.agents_config)} agents{Style.RESET_ALL}")
+                return True
+            else:
+                print(f"{self.print_timestamp()} {Fore.RED}No agents were configured, using fallback{Style.RESET_ALL}")
+                self.agents_config = self.fallback_agents.copy()
+                return False
+                
+        except Exception as e:
+            print(f"{self.print_timestamp()} {Fore.RED}Error fetching agent configuration: {e}{Style.RESET_ALL}")
+            self.agents_config = self.fallback_agents.copy()
+            return False
+    
+    def get_random_agent(self):
+        self.fetch_agent_configuration()
+            
+        if self.agents_config:
+            endpoint = random.choice(list(self.agents_config.keys()))
+            return endpoint
+        else:
+            print(f"{self.print_timestamp()} {Fore.RED}No agents available!{Style.RESET_ALL}")
+            return None
+    
+    def generate_questions_for_agent(self, agent_name: str) -> List[str]:
+        if agent_name == "Professor":
+            return [
+                "What is Kite AI's core technology?",
+                "How does Kite AI improve developer productivity?",
+                "What are the key features of Kite AI's platform?",
+                "How does Kite AI handle data security?",
+                "What makes Kite AI different from other AI platforms?",
+                "How does Kite AI integrate with existing systems?",
+                "What programming languages does Kite AI support?",
+                "How does Kite AI's API work?",
+                "What are Kite AI's scalability features?",
+                "How does Kite AI help with code quality?",
+                "What is Kite AI's approach to machine learning?",
+                "How does Kite AI handle version control?",
+                "What are Kite AI's deployment options?",
+                "How does Kite AI assist with debugging?",
+                "What are Kite AI's code completion capabilities?",
+                "How does Kite AI handle multiple projects?",
+                "What is Kite AI's pricing structure?",
+                "How does Kite AI support team collaboration?",
+                "What are Kite AI's documentation features?",
+                "How does Kite AI implement code reviews?",
+                "What is Kite AI's update frequency?",
+                "How does Kite AI handle error detection?",
+                "What are Kite AI's testing capabilities?",
+                "How does Kite AI support microservices?",
+                "What is Kite AI's cloud infrastructure?",
+                "How does Kite AI handle API documentation?",
+                "What are Kite AI's code analysis features?",
+                "How does Kite AI support continuous integration?",
+                "What is Kite AI's approach to code optimization?",
+                "How does Kite AI handle multilingual support?",
+                "What are Kite AI's security protocols?",
+                "How does Kite AI manage user permissions?",
+                "What is Kite AI's backup system?",
+                "How does Kite AI handle code refactoring?",
+                "What are Kite AI's monitoring capabilities?",
+                "How does Kite AI support remote development?",
+                "What is Kite AI's approach to technical debt?",
+                "How does Kite AI handle code dependencies?",
+                "What are Kite AI's performance metrics?",
+                "How does Kite AI support code documentation?",
+                "What is Kite AI's approach to API versioning?",
+                "How does Kite AI handle load balancing?",
+                "What are Kite AI's debugging tools?",
+                "How does Kite AI support code generation?",
+                "What is Kite AI's approach to data validation?",
+                "How does Kite AI handle error logging?",
+                "What are Kite AI's testing frameworks?",
+                "How does Kite AI support code deployment?",
+                "What is Kite AI's approach to code maintenance?",
+                "How does Kite AI handle system integration?"
+            ]
+        elif agent_name == "Crypto Buddy":
+            return [
+                "What is Bitcoin's current price?",
+                "Show me Ethereum price",
+                "What's the price of BNB?",
+                "Current Solana price?",
+                "What's AVAX trading at?",
+                "Show me MATIC price",
+                "Current price of DOT?",
+                "What's the XRP price now?",
+                "Show me ATOM price",
+                "What's the current LINK price?",
+                "Show me ADA price",
+                "What's NEAR trading at?",
+                "Current price of FTM?",
+                "What's the ALGO price?",
+                "Show me DOGE price",
+                "What's SHIB trading at?",
+                "Current price of UNI?",
+                "What's the AAVE price?",
+                "Show me LTC price",
+                "What's ETC trading at?",
+                "Show me the price of SAND",
+                "What's MANA's current price?",
+                "Current price of APE?",
+                "What's the GRT price?",
+                "Show me BAT price",
+                "What's ENJ trading at?",
+                "Current price of CHZ?",
+                "What's the CAKE price?",
+                "Show me VET price",
+                "What's ONE trading at?",
+                "Show me the price of GALA",
+                "What's THETA's current price?",
+                "Current price of ICP?",
+                "What's the FIL price?",
+                "Show me EOS price",
+                "What's XTZ trading at?",
+                "Show me the price of ZIL",
+                "What's WAVES current price?",
+                "Current price of KSM?",
+                "What's the DASH price?",
+                "Show me NEO price",
+                "What's XMR trading at?",
+                "Show me the price of IOTA",
+                "What's EGLD's current price?",
+                "Current price of COMP?",
+                "What's the SNX price?",
+                "Show me MKR price",
+                "What's CRV trading at?",
+                "Show me the price of RUNE",
+                "What's 1INCH current price?"
+            ]
+        elif agent_name == "Sherlock":
+            return []
+        
+        return ["What can you tell me about Kite AI?"]
 
     def reset_daily_points(self):
         current_time = datetime.now()
@@ -165,6 +242,7 @@ class KiteAIAutomation:
             self.next_reset_time = current_time + timedelta(hours=24)
             self.current_day_transactions = []
             self.last_transaction_fetch = None
+            self.transactions_fetch_day = None
             return True
         return False
 
@@ -185,7 +263,7 @@ class KiteAIAutomation:
     def get_recent_transactions(self, for_sherlock=False) -> List[str]:
         current_day = datetime.now().date()
         
-        if self.last_transaction_fetch and self.last_transaction_fetch.date() == current_day and self.current_day_transactions:
+        if self.transactions_fetch_day == current_day and self.current_day_transactions:
             if for_sherlock:
                 print(f"{self.print_timestamp()} {Fore.BLUE}Using cached transactions for today{Style.RESET_ALL}")
             return self.current_day_transactions
@@ -207,6 +285,7 @@ class KiteAIAutomation:
             hashes = [item['hash'] for item in data.get('items', [])]
             self.current_day_transactions = hashes
             self.last_transaction_fetch = datetime.now()
+            self.transactions_fetch_day = current_day 
             if for_sherlock:
                 print(f"{self.print_timestamp()} {Fore.MAGENTA}Successfully fetched {len(hashes)} transactions{Style.RESET_ALL}")
             return hashes
@@ -226,7 +305,7 @@ class KiteAIAutomation:
         ttft = 0
         total_time = 0
         
-        print(f"{self.print_timestamp()} {Fore.BLUE}Sending question to AI Agent: {Fore.MAGENTA}{message}{Style.RESET_ALL}\n")
+        print(f"{self.print_timestamp()} {Fore.BLUE}Sending question to AI Agent: {Fore.MAGENTA}{message}{Style.RESET_ALL}")
         start_time = time.time()
         first_token_received = False
         
@@ -265,13 +344,14 @@ class KiteAIAutomation:
 
     def report_usage(self, endpoint: str, message: str, response: str, ttft: float, total_time: float) -> bool:
         print(f"{self.print_timestamp()} {Fore.BLUE}Reporting usage...{Style.RESET_ALL}")
-        url = 'https://quests-usage-dev.prod.zettablock.com/api/report_usage'
+        
+        url = f'{self.usage_api_endpoint}/report_usage' if self.usage_api_endpoint else 'https://quests-usage-dev.prod.zettablock.com/api/report_usage'
         
         headers = GLOBAL_HEADERS.copy()
         
         data = {
             "wallet_address": self.wallet_address,
-            "agent_id": AI_ENDPOINTS[endpoint]["agent_id"],
+            "agent_id": self.agents_config[endpoint]["agent_id"],
             "request_text": message,
             "response_text": response,
             "ttft": ttft,
@@ -287,7 +367,7 @@ class KiteAIAutomation:
             return False
 
     def check_stats(self) -> Dict:
-        url = f'https://quests-usage-dev.prod.zettablock.com/api/user/{self.wallet_address}/stats'
+        url = f'{self.usage_api_endpoint}/user/{self.wallet_address}/stats' if self.usage_api_endpoint else f'https://quests-usage-dev.prod.zettablock.com/api/user/{self.wallet_address}/stats'
         
         headers = GLOBAL_HEADERS.copy()
         headers['accept'] = '*/*'
@@ -307,6 +387,7 @@ class KiteAIAutomation:
         print(f"Last Active: {Fore.YELLOW}{stats.get('last_active', 'N/A')}{Style.RESET_ALL}")
 
     def run(self):
+        print("")
         print(f"{self.print_timestamp()} {Fore.GREEN}Starting AI interaction script with 24-hour limits (Press Ctrl+C to stop){Style.RESET_ALL}")
         print(f"{self.print_timestamp()} {Fore.CYAN}Wallet Address: {Fore.MAGENTA}{self.wallet_address}{Style.RESET_ALL}")
         print(f"{self.print_timestamp()} {Fore.CYAN}Daily Point Limit: {self.MAX_DAILY_POINTS} points ({self.MAX_DAILY_INTERACTIONS} interactions){Style.RESET_ALL}")
@@ -318,29 +399,33 @@ class KiteAIAutomation:
                 self.reset_daily_points()
                 self.should_wait_for_next_reset()
                 
-                endpoint = random.choice(list(AI_ENDPOINTS.keys()))
+                endpoint = self.get_random_agent()
+                if not endpoint:
+                    print(f"{self.print_timestamp()} {Fore.RED}No agent available. Retrying...{Style.RESET_ALL}")
+                    continue
                 
                 interaction_count += 1
                 print(f"\n{Fore.CYAN}{'='*50}{Style.RESET_ALL}")
                 print(f"{Fore.MAGENTA}Interaction #{interaction_count}{Style.RESET_ALL}")
                 print(f"{Fore.CYAN}Points: {self.daily_points + self.POINTS_PER_INTERACTION}/{self.MAX_DAILY_POINTS} | Next Reset: {self.next_reset_time.strftime('%Y-%m-%d %H:%M:%S')}{Style.RESET_ALL}")
                 
-                if endpoint == SHERLOCK_ENDPOINT:
+                sherlock_endpoints = [ep for ep, config in self.agents_config.items() if config["name"] == "Sherlock"]
+                if sherlock_endpoints and endpoint in sherlock_endpoints:
                     transactions = self.get_recent_transactions(for_sherlock=True)
                     if transactions:
-                        AI_ENDPOINTS[SHERLOCK_ENDPOINT]["questions"] = [
+                        self.agents_config[endpoint]["questions"] = [
                             f"What do you think of this transaction? {tx}"
                             for tx in transactions[:5]
                         ]
                 
-                if not AI_ENDPOINTS[endpoint]["questions"]:
-                    print(f"{self.print_timestamp()} {Fore.YELLOW}No questions available for {AI_ENDPOINTS[endpoint]['name']}, skipping...{Style.RESET_ALL}")
+                if not self.agents_config[endpoint]["questions"]:
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}No questions available for {self.agents_config[endpoint]['name']}, skipping...{Style.RESET_ALL}")
                     continue
                 
-                question = random.choice(AI_ENDPOINTS[endpoint]["questions"])
+                question = random.choice(self.agents_config[endpoint]["questions"])
                 
-                print(f"\n{Fore.CYAN}Selected AI Assistant: {Fore.WHITE}{AI_ENDPOINTS[endpoint]['name']}")
-                print(f"{Fore.CYAN}Agent ID: {Fore.WHITE}{AI_ENDPOINTS[endpoint]['agent_id']}")
+                print(f"\n{Fore.CYAN}Selected AI Assistant: {Fore.WHITE}{self.agents_config[endpoint]['name']}")
+                print(f"{Fore.CYAN}Agent ID: {Fore.WHITE}{self.agents_config[endpoint]['agent_id']}")
                 print(f"{Fore.CYAN}Question: {Fore.WHITE}{question}{Style.RESET_ALL}\n")
                 
                 initial_stats = self.check_stats()
@@ -352,8 +437,6 @@ class KiteAIAutomation:
                 
                 if self.report_usage(endpoint, question, response, ttft, total_time):
                     print(f"{self.print_timestamp()} {Fore.GREEN}Usage reported successfully{Style.RESET_ALL}")
-                    
-                    time.sleep(2)
                     
                     final_stats = self.check_stats()
                     final_interactions = final_stats.get('total_interactions', 0)
