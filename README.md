@@ -3,7 +3,8 @@ Gokite.ai testnet automated Daily Agent Interactions script.
 ## Tools and components required
 1. Gokite.ai Account, Register here: [https://testnet.gokite.ai](https://testnet.gokite.ai?r=cmuST6sG)
 2. EVM Wallet Address, Please register using EVM wallet using Avalanche Chain and complete all tasks first!
-3. VPS or RDP (OPTIONAL), Get free $200 credit [DigitalOcean](https://m.do.co/c/3f132e0f7e13) for 60 days here: [Register](https://m.do.co/c/3f132e0f7e13)
+3. Python3 Latest
+4. VPS or RDP (OPTIONAL), Get free $200 credit [DigitalOcean](https://m.do.co/c/3f132e0f7e13) for 60 days here: [Register](https://m.do.co/c/3f132e0f7e13)
 ## Installation
 - Install Python For Windows: [Python](https://www.python.org/ftp/python/3.13.0/python-3.13.0-amd64.exe)
 - For Unix:
