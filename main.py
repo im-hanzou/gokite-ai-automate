@@ -310,16 +310,16 @@ class KiteAIAutomation:
         first_token_received = False
         
         try:
-            response = requests.post(endpoint, headers=headers, json=data, stream=True, timeout=600)
+            response = requests.post(endpoint, headers=headers, json=data, stream=True, timeout=60)
             accumulated_response = ""
                        
             print(f"\n{Fore.CYAN}AI Agent Response: {Style.RESET_ALL}", end='', flush=True)
             
-            max_end_time = start_time + 600
+            max_end_time = start_time + 60
             
             for line in response.iter_lines():
                 if time.time() > max_end_time:
-                    print(f"\n{self.print_timestamp()} {Fore.RED}Response timed out after 10 minutes. Moving to next interaction.{Style.RESET_ALL}")
+                    print(f"\n{self.print_timestamp()} {Fore.RED}Response timed out after 1 minutes. Moving to next interaction.{Style.RESET_ALL}")
                     break
                     
                 if line:
