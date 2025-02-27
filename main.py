@@ -308,18 +308,20 @@ class KiteAIAutomation:
         print(f"{self.print_timestamp()} {Fore.BLUE}Sending question to AI Agent: {Fore.MAGENTA}{message}{Style.RESET_ALL}")
         start_time = time.time()
         first_token_received = False
+        timed_out = False
         
         try:
             response = requests.post(endpoint, headers=headers, json=data, stream=True, timeout=60)
             accumulated_response = ""
-                       
+                    
             print(f"\n{Fore.CYAN}AI Agent Response: {Style.RESET_ALL}", end='', flush=True)
             
             max_end_time = start_time + 60
             
             for line in response.iter_lines():
                 if time.time() > max_end_time:
-                    print(f"\n{self.print_timestamp()} {Fore.RED}Response timed out after 1 minutes. Moving to next interaction.{Style.RESET_ALL}")
+                    print(f"\n{self.print_timestamp()} {Fore.RED}Response timed out after 1 minute. Moving to next interaction.{Style.RESET_ALL}")
+                    timed_out = True
                     break
                     
                 if line:
@@ -340,16 +342,18 @@ class KiteAIAutomation:
                                 accumulated_response += content
                                 print(Fore.MAGENTA + content + Style.RESET_ALL, end='', flush=True)
                         except json.JSONDecodeError:
-                            continue   
+                            continue
+                        
             total_time = (time.time() - start_time) * 1000
             print("\n") 
-            return accumulated_response.strip(), ttft, total_time
+
+            return accumulated_response.strip(), ttft, total_time, timed_out
         except requests.exceptions.Timeout:
-            print(f"\n{self.print_timestamp()} {Fore.RED}Request timed out after 10 minutes. Moving to next interaction.{Style.RESET_ALL}")
-            return "", 0, 0
+            print(f"\n{self.print_timestamp()} {Fore.RED}Request timed out after 1 minutes. Moving to next interaction.{Style.RESET_ALL}")
+            return "", 0, 0, True 
         except Exception as e:
             print(f"{self.print_timestamp()} {Fore.RED}Error in AI query: {e}{Style.RESET_ALL}")
-            return "", 0, 0
+            return "", 0, 0, True
 
     def report_usage(self, endpoint: str, message: str, response: str, ttft: float, total_time: float) -> bool:
         print(f"{self.print_timestamp()} {Fore.BLUE}Reporting usage...{Style.RESET_ALL}")
@@ -440,24 +444,27 @@ class KiteAIAutomation:
                 initial_stats = self.check_stats()
                 initial_interactions = initial_stats.get('total_interactions', 0)
                 
-                response, ttft, total_time = self.send_ai_query(endpoint, question)
+                response, ttft, total_time, timed_out = self.send_ai_query(endpoint, question)
                 
                 print(f"{self.print_timestamp()} {Fore.BLUE}TTFT: {ttft:.2f}ms | Total Time: {total_time:.2f}ms{Style.RESET_ALL}")
                 
-                if self.report_usage(endpoint, question, response, ttft, total_time):
-                    print(f"{self.print_timestamp()} {Fore.GREEN}Usage reported successfully{Style.RESET_ALL}")
-                    
-                    final_stats = self.check_stats()
-                    final_interactions = final_stats.get('total_interactions', 0)
-                    
-                    if final_interactions > initial_interactions:
-                        print(f"{self.print_timestamp()} {Fore.GREEN}Interaction successfully recorded!{Style.RESET_ALL}")
-                        self.daily_points += self.POINTS_PER_INTERACTION
-                        self.print_stats(final_stats)
+                if not timed_out:
+                    if self.report_usage(endpoint, question, response, ttft, total_time):
+                        print(f"{self.print_timestamp()} {Fore.GREEN}Usage reported successfully{Style.RESET_ALL}")
+                        
+                        final_stats = self.check_stats()
+                        final_interactions = final_stats.get('total_interactions', 0)
+                        
+                        if final_interactions > initial_interactions:
+                            print(f"{self.print_timestamp()} {Fore.GREEN}Interaction successfully recorded!{Style.RESET_ALL}")
+                            self.daily_points += self.POINTS_PER_INTERACTION
+                            self.print_stats(final_stats)
+                        else:
+                            print(f"{self.print_timestamp()} {Fore.RED}Warning: Interaction may not have been recorded{Style.RESET_ALL}")
                     else:
-                        print(f"{self.print_timestamp()} {Fore.RED}Warning: Interaction may not have been recorded{Style.RESET_ALL}")
+                        print(f"{self.print_timestamp()} {Fore.RED}Failed to report usage{Style.RESET_ALL}")
                 else:
-                    print(f"{self.print_timestamp()} {Fore.RED}Failed to report usage{Style.RESET_ALL}")
+                    print(f"{self.print_timestamp()} {Fore.YELLOW}Skipping usage report due to timeout{Style.RESET_ALL}")
                 
                 delay = random.uniform(60, 120)
                 print(f"\n{self.print_timestamp()} {Fore.YELLOW}Waiting {delay:.1f} seconds before next query...{Style.RESET_ALL}")
