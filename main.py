@@ -310,11 +310,18 @@ class KiteAIAutomation:
         first_token_received = False
         
         try:
-            response = requests.post(endpoint, headers=headers, json=data, stream=True)
+            response = requests.post(endpoint, headers=headers, json=data, stream=True, timeout=600)
             accumulated_response = ""
+                       
+            print(f"\n{Fore.CYAN}AI Agent Response: {Style.RESET_ALL}", end='', flush=True)
             
-            print(f"{Fore.CYAN}AI Agent Response: {Style.RESET_ALL}", end='', flush=True)
+            max_end_time = start_time + 600
+            
             for line in response.iter_lines():
+                if time.time() > max_end_time:
+                    print(f"\n{self.print_timestamp()} {Fore.RED}Response timed out after 10 minutes. Moving to next interaction.{Style.RESET_ALL}")
+                    break
+                    
                 if line:
                     line = line.decode('utf-8')
                     if line.startswith('data: '):
@@ -333,11 +340,13 @@ class KiteAIAutomation:
                                 accumulated_response += content
                                 print(Fore.MAGENTA + content + Style.RESET_ALL, end='', flush=True)
                         except json.JSONDecodeError:
-                            continue
-            
+                            continue   
             total_time = (time.time() - start_time) * 1000
-            print() 
+            print("\n") 
             return accumulated_response.strip(), ttft, total_time
+        except requests.exceptions.Timeout:
+            print(f"\n{self.print_timestamp()} {Fore.RED}Request timed out after 10 minutes. Moving to next interaction.{Style.RESET_ALL}")
+            return "", 0, 0
         except Exception as e:
             print(f"{self.print_timestamp()} {Fore.RED}Error in AI query: {e}{Style.RESET_ALL}")
             return "", 0, 0
