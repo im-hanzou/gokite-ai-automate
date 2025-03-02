@@ -33,6 +33,7 @@ pip install -r requirements.txt
 pip3 install -r requirements.txt
 ```
 ## Run the Bot
+- First get your testnet token from [faucet](https://faucet.gokite.ai/) (do everyday), then:
 - Windows and Termux:
 ```bash
 python main.py
